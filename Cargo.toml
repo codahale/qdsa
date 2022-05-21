@@ -14,6 +14,7 @@ std = ["fiat-crypto/std", "subtle/std"]
 
 [dev-dependencies]
 criterion = "0.3.5"
+hex-literal = "0.3.4"
 orion = "0.17.1"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 sha3 = "0.10.1"
