@@ -5,7 +5,7 @@
 #![forbid(unsafe_code)]
 
 pub use crate::qdsa::{keypair, sign, verify};
-pub use crate::x25519::{dh_exchange, dh_keygen};
+pub use crate::x25519::{dh_keygen, x25519};
 
 mod fe25519;
 mod point;

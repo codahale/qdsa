@@ -14,7 +14,9 @@ pub fn dh_keygen(seed: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
     (sk, pk)
 }
 
-pub fn dh_exchange(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
+/// Given a public key `pk` and secret key `sk`, returns the X25519 shared secret.
+#[must_use]
+pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
     let rx = fe25519::unpack(pk);
     let d = scalar::get32(sk);
     let ss = point::ladder(&rx, &d);
@@ -28,7 +30,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dh_kat() {
+    fn x25519_kat() {
         let seed = [
             0x05, 0xaa, 0xb7, 0x28, 0xaf, 0x33, 0x72, 0xef, 0x55, 0xd3, 0x84, 0x90, 0xa7, 0x0a,
             0x3b, 0xd1, 0xce, 0xdd, 0xdc, 0xf6, 0x25, 0x25, 0x6f, 0xf0, 0x38, 0x5b, 0xd9, 0x6d,
@@ -56,7 +58,7 @@ mod tests {
             0x52, 0xbd, 0x66, 0x61,
         ];
 
-        let ss_a = dh_exchange(&pk, &sk);
+        let ss_a = x25519(&pk, &sk);
 
         assert_eq!(ss, ss_a);
     }
@@ -67,9 +69,9 @@ mod tests {
             let (sk_a, pk_a) = dh_keygen(&thread_rng().gen());
             let (sk_b, pk_b) = dh_keygen(&thread_rng().gen());
 
-            let ss_a = dh_exchange(&pk_b, &sk_a);
-            let ss_b = dh_exchange(&pk_a, &sk_b);
-            let ss_c = dh_exchange(&pk_a, &sk_a);
+            let ss_a = x25519(&pk_b, &sk_a);
+            let ss_b = x25519(&pk_a, &sk_b);
+            let ss_c = x25519(&pk_a, &sk_a);
 
             assert_eq!(ss_a, ss_b);
             assert_ne!(ss_a, ss_c);
@@ -82,7 +84,7 @@ mod tests {
             let (sk_a, pk_a) = dh_keygen(&thread_rng().gen());
             let (sk_b, pk_b) = dh_keygen(&thread_rng().gen());
 
-            let ss_a = dh_exchange(&pk_b, &sk_a);
+            let ss_a = x25519(&pk_b, &sk_a);
 
             let pk_a = orion::kex::PublicKey::from(pk_a);
             let sk_b = orion::hazardous::ecc::x25519::PrivateKey::from(sk_b);

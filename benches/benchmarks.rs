@@ -5,7 +5,7 @@ use sha3::{
     Shake128,
 };
 
-use qdsa::{dh_exchange, dh_keygen, keypair, sign, verify};
+use qdsa::{dh_keygen, keypair, sign, verify, x25519};
 
 fn keygen_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("keygen");
@@ -31,7 +31,7 @@ fn ecdh_benchmarks(c: &mut Criterion) {
         let (sk_a, _) = dh_keygen(&rand::thread_rng().gen());
         let (_, pk_b) = dh_keygen(&rand::thread_rng().gen());
 
-        b.iter(|| dh_exchange(&sk_a, &pk_b))
+        b.iter(|| x25519(&sk_a, &pk_b))
     });
 
     g.bench_function("x25529-orion", |b| {
