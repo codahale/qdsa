@@ -57,40 +57,46 @@ pub fn verify(
 #[cfg(test)]
 mod tests {
     use rand::{thread_rng, Rng};
-    use sha3::Digest;
-    use sha3::Sha3_512;
+    use sha3::{
+        digest::{ExtendableOutput, Update, XofReader},
+        Shake128,
+    };
 
     use super::*;
 
-    fn sha3_512(bin: &[&[u8]]) -> [u8; 64] {
-        let mut hasher = Sha3_512::new();
+    fn shake128(bin: &[&[u8]]) -> [u8; 64] {
+        let mut hasher = Shake128::default();
         for data in bin {
             hasher.update(data);
         }
-        hasher.finalize().into()
+
+        let mut digest = [0u8; 64];
+        let mut xof = hasher.finalize_xof();
+        xof.read(&mut digest);
+        digest
     }
 
     #[test]
     fn qdsa_round_trip() {
         for _ in 0..1000 {
-            let (sk_a, pk_a) = keypair(&thread_rng().gen(), sha3_512);
-            let (_, pk_b) = keypair(&thread_rng().gen(), sha3_512);
+            let (sk_a, pk_a) = keypair(&thread_rng().gen(), shake128);
+            let (_, pk_b) = keypair(&thread_rng().gen(), shake128);
 
             let message = b"this is a message";
 
-            let sig = sign(message, &pk_a, &sk_a, sha3_512);
+            let sig = sign(message, &pk_a, &sk_a, shake128);
             let mut sig_p = sig;
             sig_p[4] ^= 1;
 
-            assert!(verify(message, &sig, &pk_a, sha3_512));
-            assert!(!verify(message, &sig, &pk_b, sha3_512));
+            assert!(verify(message, &sig, &pk_a, shake128));
+            assert!(!verify(message, &sig, &pk_b, shake128));
             assert!(!verify(
                 b"this is a different message",
                 &sig,
                 &pk_a,
-                sha3_512
+                shake128
             ));
-            assert!(!verify(message, &sig_p, &pk_a, sha3_512));
+            assert!(!verify(message, &sig_p, &pk_a, shake128));
         }
     }
 }

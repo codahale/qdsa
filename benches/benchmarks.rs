@@ -1,7 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::Rng;
-use sha3::Digest;
-use sha3::Sha3_512;
+use sha3::{
+    digest::{ExtendableOutput, Update, XofReader},
+    Shake128,
+};
 
 use qdsa::{dh_exchange, dh_keygen, keypair, sign, verify};
 
@@ -47,10 +49,10 @@ fn sign_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("sign");
 
     g.bench_function("qdsa", |b| {
-        let (sk, pk) = keypair(&rand::thread_rng().gen(), sha3_512);
+        let (sk, pk) = keypair(&rand::thread_rng().gen(), shake128);
         let message = b"this is a short message";
 
-        b.iter(|| sign(message, &pk, &sk, sha3_512))
+        b.iter(|| sign(message, &pk, &sk, shake128))
     });
 
     g.finish();
@@ -60,22 +62,26 @@ fn verify_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("verify");
 
     g.bench_function("qdsa", |b| {
-        let (sk, pk) = keypair(&rand::thread_rng().gen(), sha3_512);
+        let (sk, pk) = keypair(&rand::thread_rng().gen(), shake128);
         let message = b"this is a short message";
-        let sig = sign(message, &pk, &sk, sha3_512);
+        let sig = sign(message, &pk, &sk, shake128);
 
-        b.iter(|| verify(message, &sig, &pk, sha3_512))
+        b.iter(|| verify(message, &sig, &pk, shake128))
     });
 
     g.finish();
 }
 
-fn sha3_512(bin: &[&[u8]]) -> [u8; 64] {
-    let mut hasher = Sha3_512::new();
+fn shake128(bin: &[&[u8]]) -> [u8; 64] {
+    let mut hasher = Shake128::default();
     for data in bin {
         hasher.update(data);
     }
-    hasher.finalize().into()
+
+    let mut digest = [0u8; 64];
+    let mut xof = hasher.finalize_xof();
+    xof.read(&mut digest);
+    digest
 }
 
 criterion_group!(
