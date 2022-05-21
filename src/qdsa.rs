@@ -1,6 +1,5 @@
 use crate::{fe25519, point, scalar};
 
-// verified
 pub fn keypair(
     seed: &[u8; 32],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
@@ -16,7 +15,6 @@ pub fn keypair(
     (sk, fe25519::pack(&r))
 }
 
-// verified
 pub fn sign(
     m: &[u8],
     pk: &[u8; 32],

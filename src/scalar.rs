@@ -11,14 +11,12 @@ const MU: [u32; 33] = [
     0x0f,
 ];
 
-// verified
 pub fn clamp(sk: &mut [u8; 32]) {
     sk[0] &= 248;
     sk[31] &= 127;
     sk[31] |= 64;
 }
 
-// verified
 pub fn get32(x: &[u8; 32]) -> GroupScalar {
     let mut d = GroupScalar::default();
     for (a, b) in d.iter_mut().zip(x.iter()) {
@@ -27,7 +25,6 @@ pub fn get32(x: &[u8; 32]) -> GroupScalar {
     d
 }
 
-// verified
 pub fn get64(x: &[u8; 64]) -> GroupScalar {
     let mut t = [0u32; 64];
     for (a, b) in t.iter_mut().zip(x.iter()) {
@@ -36,7 +33,6 @@ pub fn get64(x: &[u8; 64]) -> GroupScalar {
     barrett_reduce(&t)
 }
 
-// verified
 pub fn pack(r: &GroupScalar) -> [u8; 32] {
     let mut x = [0u8; 32];
     for (a, b) in r.iter().zip(x.iter_mut()) {
@@ -45,7 +41,6 @@ pub fn pack(r: &GroupScalar) -> [u8; 32] {
     x
 }
 
-// verified
 fn add(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
     let mut r = [0u16; 32];
     for ((a, &b), &c) in r.iter_mut().zip(x.iter()).zip(y.iter()) {
@@ -60,7 +55,6 @@ fn add(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
     r
 }
 
-// verified
 pub fn sub(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
     let mut d = GroupScalar::default();
     let mut b = 0;
@@ -72,7 +66,6 @@ pub fn sub(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
     add(x, &d)
 }
 
-// verified
 pub fn mul(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
     let mut t = [0u32; 64];
     for i in 0..32 {
@@ -91,13 +84,11 @@ pub fn mul(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
     barrett_reduce(&t)
 }
 
-// verified
 fn negate(r: &GroupScalar) -> GroupScalar {
     let zero = GroupScalar::default();
     sub(&zero, r)
 }
 
-// verified
 pub fn abs(r: &GroupScalar) -> GroupScalar {
     if r[0] & 1 == 0 {
         *r
@@ -106,7 +97,6 @@ pub fn abs(r: &GroupScalar) -> GroupScalar {
     }
 }
 
-// verified
 fn barrett_reduce(x: &[u32; 64]) -> GroupScalar {
     let mut r = GroupScalar::default();
     let mut q2 = [0u32; 66];
@@ -158,7 +148,6 @@ fn barrett_reduce(x: &[u32; 64]) -> GroupScalar {
     r
 }
 
-// verified
 fn lt(a: u32, b: u32) -> u32 {
     let mut x = a;
     x = x.wrapping_sub(b); // 0..65535: no; 4294901761..4294967295: yes
@@ -167,7 +156,6 @@ fn lt(a: u32, b: u32) -> u32 {
 }
 
 // Reduce coefficients of r before calling reduce_add_sub
-// verified
 fn reduce_add_sub(r: &mut GroupScalar) {
     let mut pb = 0;
     let mut b = 0;

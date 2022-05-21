@@ -11,7 +11,6 @@ use crate::scalar::GroupScalar;
 //
 // Output:
 //      xr: proj. x-coordinate of n*xq
-// verified
 pub fn ladder(xp: &Fe25519, n: &GroupScalar) -> Fe25519 {
     let mut x2 = fe25519::one();
     let mut x3 = *xp;
@@ -56,7 +55,6 @@ pub fn ladder(xp: &Fe25519, n: &GroupScalar) -> Fe25519 {
     x2
 }
 
-// verified
 pub fn ladder_base(n: &GroupScalar) -> Fe25519 {
     ladder(&[9, 0, 0, 0, 0], n)
 }
