@@ -1,6 +1,6 @@
 use crate::fe25519;
 use crate::fe25519::Fe25519;
-use crate::scalar::GroupScalar;
+use crate::scalar::Scalar;
 
 // Montgomery ladder computing n*xp via repeated differential additions and constant-time
 // conditional swaps.
@@ -11,7 +11,7 @@ use crate::scalar::GroupScalar;
 //
 // Output:
 //      xr: proj. x-coordinate of n*xq
-pub fn ladder(xp: &Fe25519, n: &GroupScalar) -> Fe25519 {
+pub fn ladder(xp: &Fe25519, n: &Scalar) -> Fe25519 {
     let mut x2 = fe25519::one();
     let mut x3 = *xp;
     let mut z3 = fe25519::one();
@@ -21,7 +21,7 @@ pub fn ladder(xp: &Fe25519, n: &GroupScalar) -> Fe25519 {
     let mut swap_bit: u8 = 0;
 
     for idx in (0..=254).rev() {
-        let bit = ((n[idx >> 3] >> (idx & 7)) & 1) as u8;
+        let bit = ((n.0[idx >> 3] >> (idx & 7)) & 1) as u8;
         swap_bit ^= bit;
         fe25519::swap(&mut x2, &mut x3, swap_bit);
         fe25519::swap(&mut z2, &mut z3, swap_bit);
@@ -55,7 +55,7 @@ pub fn ladder(xp: &Fe25519, n: &GroupScalar) -> Fe25519 {
     fe25519::freeze(&x2)
 }
 
-pub fn ladder_base(n: &GroupScalar) -> Fe25519 {
+pub fn ladder_base(n: &Scalar) -> Fe25519 {
     ladder(&[9, 0, 0, 0, 0], n)
 }
 

@@ -1,4 +1,136 @@
-pub type GroupScalar = [u16; 32];
+use std::ops::{Add, Mul, Neg, Sub};
+
+#[derive(Copy, Clone, Default)]
+pub struct Scalar(pub(crate) [u16; 32]);
+
+impl Scalar {
+    #[inline]
+    pub fn clamp(x: &[u8; 32]) -> Scalar {
+        let mut x = *x;
+        x[0] &= 248;
+        x[31] &= 127;
+        x[31] |= 64;
+
+        Scalar::from_bits(&x)
+    }
+
+    #[inline]
+    pub fn reduce(x: &[u8; 32]) -> Scalar {
+        let mut d = Scalar::from_bits(x);
+        reduce_add_sub(&mut d);
+        d
+    }
+
+    #[inline]
+    pub fn wide_reduce(x: &[u8; 64]) -> Scalar {
+        let mut t = [0u32; 64];
+        for (a, b) in t.iter_mut().zip(x.iter()) {
+            *a = *b as u32
+        }
+        barrett_reduce(&t)
+    }
+
+    #[inline]
+    pub fn as_bytes(&self) -> [u8; 32] {
+        let mut x = [0u8; 32];
+        for (a, b) in self.0.iter().zip(x.iter_mut()) {
+            *b = *a as u8;
+        }
+        x
+    }
+
+    #[inline]
+    fn from_bits(x: &[u8; 32]) -> Scalar {
+        let mut d = Scalar::default();
+        for (a, b) in d.0.iter_mut().zip(x.iter()) {
+            *a = *b as u16
+        }
+        d
+    }
+
+    #[inline]
+    pub fn is_pos(&self) -> bool {
+        self.0[0] & 1 == 0
+    }
+
+    #[inline]
+    pub fn abs(&self) -> Scalar {
+        if self.is_pos() {
+            *self
+        } else {
+            -self
+        }
+    }
+}
+
+impl Add for &Scalar {
+    type Output = Scalar;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut r = Scalar::default();
+        for ((a, &b), &c) in r.0.iter_mut().zip(self.0.iter()).zip(rhs.0.iter()) {
+            *a = b.wrapping_add(c);
+        }
+        for i in 0..31 {
+            let carry = r.0[i] >> 8;
+            r.0[i + 1] = r.0[i + 1].wrapping_add(carry);
+            r.0[i] &= 0xff;
+        }
+        reduce_add_sub(&mut r);
+        r
+    }
+}
+
+impl Neg for &Scalar {
+    type Output = Scalar;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        let mut d = Scalar::default();
+        let mut b = 0;
+
+        for ((&m_i, y_i), d_i) in M.iter().zip(self.0).zip(d.0.iter_mut()) {
+            let t = m_i.wrapping_sub(y_i as u32).wrapping_sub(b);
+            *d_i = (t & 255) as u16;
+            b = (t >> 8) & 1;
+        }
+
+        d
+    }
+}
+
+impl Sub for &Scalar {
+    type Output = Scalar;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self::Output {
+        self + &(-rhs)
+    }
+}
+
+impl Mul for &Scalar {
+    type Output = Scalar;
+
+    #[inline]
+    fn mul(self, rhs: Self) -> Self::Output {
+        let mut t = [0u32; 64];
+        for i in 0..32 {
+            for j in 0..32 {
+                t[i + j] += self.0[i] as u32 * rhs.0[j] as u32;
+            }
+        }
+
+        /* Reduce coefficients */
+        for i in 0..63 {
+            let carry = t[i] >> 8;
+            t[i + 1] += carry;
+            t[i] &= 0xff;
+        }
+
+        barrett_reduce(&t)
+    }
+}
 
 const M: [u32; 32] = [
     0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
@@ -11,104 +143,8 @@ const MU: [u32; 33] = [
     0x0f,
 ];
 
-pub fn clamp(sk: &mut [u8]) {
-    sk[0] &= 248;
-    sk[31] &= 127;
-    sk[31] |= 64;
-}
-
-pub fn get32(x: &[u8; 32]) -> GroupScalar {
-    let mut d = GroupScalar::default();
-    for (a, b) in d.iter_mut().zip(x.iter()) {
-        *a = *b as u16
-    }
-    d
-}
-
-pub fn get32_reduced(x: &[u8; 32]) -> GroupScalar {
-    let mut d = get32(x);
-    reduce_add_sub(&mut d);
-    d
-}
-
-pub fn get64(x: &[u8; 64]) -> GroupScalar {
-    let mut t = [0u32; 64];
-    for (a, b) in t.iter_mut().zip(x.iter()) {
-        *a = *b as u32
-    }
-    barrett_reduce(&t)
-}
-
-pub fn pack(r: &GroupScalar) -> [u8; 32] {
-    let mut x = [0u8; 32];
-    for (a, b) in r.iter().zip(x.iter_mut()) {
-        *b = *a as u8;
-    }
-    x
-}
-
-fn add(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
-    let mut r = [0u16; 32];
-    for ((a, &b), &c) in r.iter_mut().zip(x.iter()).zip(y.iter()) {
-        *a = b.wrapping_add(c);
-    }
-    for i in 0..31 {
-        let carry = r[i] >> 8;
-        r[i + 1] = r[i + 1].wrapping_add(carry);
-        r[i] &= 0xff;
-    }
-    reduce_add_sub(&mut r);
-    r
-}
-
-pub fn sub(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
-    let mut d = GroupScalar::default();
-    let mut b = 0;
-    for i in 0..32 {
-        let t = M[i].wrapping_sub(y[i] as u32).wrapping_sub(b);
-        d[i] = (t & 255) as u16;
-        b = (t >> 8) & 1;
-    }
-    add(x, &d)
-}
-
-pub fn mul(x: &GroupScalar, y: &GroupScalar) -> GroupScalar {
-    let mut t = [0u32; 64];
-    for i in 0..32 {
-        for j in 0..32 {
-            t[i + j] += x[i] as u32 * y[j] as u32;
-        }
-    }
-
-    /* Reduce coefficients */
-    for i in 0..63 {
-        let carry = t[i] >> 8;
-        t[i + 1] += carry;
-        t[i] &= 0xff;
-    }
-
-    barrett_reduce(&t)
-}
-
-fn negate(r: &GroupScalar) -> GroupScalar {
-    let zero = GroupScalar::default();
-    sub(&zero, r)
-}
-
-pub fn is_pos(r: &GroupScalar) -> bool {
-    r[0] & 1 == 0
-}
-
-pub fn abs(r: &GroupScalar) -> GroupScalar {
-    if is_pos(r) {
-        *r
-    } else {
-        negate(r)
-    }
-}
-
-fn barrett_reduce(x: &[u32; 64]) -> GroupScalar {
-    let mut r = GroupScalar::default();
+fn barrett_reduce(x: &[u32; 64]) -> Scalar {
+    let mut r = Scalar::default();
     let mut q2 = [0u32; 66];
     let mut r1 = [0u32; 33];
     let mut r2 = [0u32; 33];
@@ -144,7 +180,7 @@ fn barrett_reduce(x: &[u32; 64]) -> GroupScalar {
     for i in 0..32 {
         pb += r2[i];
         let b = lt(r1[i], pb);
-        r[i] = (r1[i].wrapping_sub(pb + (b << 8))) as u8 as u16;
+        r.0[i] = (r1[i].wrapping_sub(pb + (b << 8))) as u8 as u16;
         pb = b;
     }
 
@@ -158,6 +194,7 @@ fn barrett_reduce(x: &[u32; 64]) -> GroupScalar {
     r
 }
 
+#[inline]
 fn lt(a: u32, b: u32) -> u32 {
     let mut x = a;
     x = x.wrapping_sub(b); // 0..65535: no; 4294901761..4294967295: yes
@@ -165,23 +202,24 @@ fn lt(a: u32, b: u32) -> u32 {
     x
 }
 
+#[inline]
 // Reduce coefficients of r before calling reduce_add_sub
-fn reduce_add_sub(r: &mut GroupScalar) {
+fn reduce_add_sub(r: &mut Scalar) {
     let mut pb = 0;
     let mut b = 0;
     let mut t = [0u8; 32];
 
     for i in 0..32 {
         pb += M[i];
-        b = lt(r[i] as u32, pb);
-        t[i] = ((r[i] as u32).wrapping_sub(pb + (b << 8))) as u8;
+        b = lt(r.0[i] as u32, pb);
+        t[i] = ((r.0[i] as u32).wrapping_sub(pb + (b << 8))) as u8;
         pb = b;
     }
 
     let mask = b.wrapping_sub(1);
 
-    for i in 0..32 {
-        r[i] ^= (mask & (r[i] as u32 ^ t[i] as u32)) as u16;
+    for (&t_i, r_i) in t.iter().zip(r.0.iter_mut()) {
+        *r_i ^= (mask & (*r_i as u32 ^ t_i as u32)) as u16;
     }
 }
 

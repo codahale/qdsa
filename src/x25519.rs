@@ -1,15 +1,12 @@
 use crate::fe25519;
 use crate::point;
-use crate::scalar;
+use crate::scalar::Scalar;
 
 /// Given a public key `pk` and secret key `sk`, returns the X25519 shared secret.
 #[must_use]
 pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
-    let mut sk = *sk;
-    scalar::clamp(&mut sk);
-
     let rx = fe25519::unpack(pk);
-    let d = scalar::get32(&sk);
+    let d = Scalar::clamp(sk);
     fe25519::pack(&point::ladder(&rx, &d))
 }
 

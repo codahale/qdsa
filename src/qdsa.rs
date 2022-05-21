@@ -1,4 +1,5 @@
-use crate::{fe25519, point, scalar};
+use crate::scalar::Scalar;
+use crate::{fe25519, point};
 
 pub fn sign(
     m: &[u8],
@@ -7,23 +8,20 @@ pub fn sign(
     sk: &[u8; 32],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
-    let mut sk = *sk;
-    scalar::clamp(&mut sk);
-
     let r = hash(&[nonce, m]);
-    let r = scalar::get64(&r);
+    let r = Scalar::wide_reduce(&r);
     let rx = fe25519::pack(&point::ladder_base(&r));
 
-    let h = scalar::get64(&hash(&[&rx, pk, m]));
-    let h = scalar::abs(&h);
-    let s = scalar::get32(&sk);
-    let s = scalar::mul(&h, &s);
-    let s = scalar::sub(&r, &s);
-    let s = scalar::abs(&s);
+    let h = Scalar::wide_reduce(&hash(&[&rx, pk, m]));
+    let h = h.abs();
+    let s = Scalar::clamp(sk);
+    let s = &h * &s;
+    let s = &r - &s;
+    let s = s.abs();
 
     let mut sig = [0u8; 64];
     sig[..32].copy_from_slice(&rx);
-    sig[32..].copy_from_slice(&scalar::pack(&s));
+    sig[32..].copy_from_slice(&s.as_bytes());
     sig
 }
 
@@ -34,12 +32,12 @@ pub fn verify(
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> bool {
     let rx = fe25519::unpack(&sig[..32].try_into().unwrap());
-    let s = scalar::get32_reduced(&sig[32..].try_into().unwrap());
-    if !scalar::is_pos(&s) {
+    let s = Scalar::reduce(&sig[32..].try_into().unwrap());
+    if !s.is_pos() {
         return false;
     }
 
-    let h = scalar::get64(&hash(&[&sig[..32], pk, m]));
+    let h = Scalar::wide_reduce(&hash(&[&sig[..32], pk, m]));
 
     let pkx = fe25519::unpack(pk);
     let h_q = point::ladder(&pkx, &h);
