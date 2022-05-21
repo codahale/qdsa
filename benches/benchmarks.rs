@@ -5,7 +5,7 @@ use sha3::{
     Shake128,
 };
 
-use qdsa::{keypair, public_key, sign, verify, x25519};
+use qdsa::{public_key, sign, verify, x25519};
 
 fn keygen_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("keygen");
@@ -49,10 +49,12 @@ fn sign_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("sign");
 
     g.bench_function("qdsa", |b| {
-        let (sk, pk) = keypair(&rand::thread_rng().gen(), shake128);
+        let sk = rand::thread_rng().gen();
+        let pk = public_key(&sk);
+        let nonce = rand::thread_rng().gen();
         let message = b"this is a short message";
 
-        b.iter(|| sign(message, &pk, &sk, shake128))
+        b.iter(|| sign(message, &pk, &nonce, &sk, shake128))
     });
 
     g.finish();
@@ -62,9 +64,11 @@ fn verify_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("verify");
 
     g.bench_function("qdsa", |b| {
-        let (sk, pk) = keypair(&rand::thread_rng().gen(), shake128);
+        let sk = rand::thread_rng().gen();
+        let pk = public_key(&sk);
+        let nonce = rand::thread_rng().gen();
         let message = b"this is a short message";
-        let sig = sign(message, &pk, &sk, shake128);
+        let sig = sign(message, &pk, &nonce, &sk, shake128);
 
         b.iter(|| verify(message, &sig, &pk, shake128))
     });

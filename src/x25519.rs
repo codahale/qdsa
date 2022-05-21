@@ -2,17 +2,6 @@ use crate::fe25519;
 use crate::point;
 use crate::scalar;
 
-/// Given a secret key `sk`, returns the corresponding public key.
-pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
-    let mut sk = *sk;
-    scalar::clamp(&mut sk);
-
-    let d = scalar::get32(&sk);
-    let q = point::ladder_base(&d);
-
-    fe25519::pack(&q)
-}
-
 /// Given a public key `pk` and secret key `sk`, returns the X25519 shared secret.
 #[must_use]
 pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
@@ -26,6 +15,7 @@ pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
+    use crate::public_key;
     use hex_literal::hex;
     use rand::{thread_rng, Rng};
 

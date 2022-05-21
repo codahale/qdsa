@@ -8,7 +8,6 @@ exception of making the hash function generic.
 
 ## TODO
 
-- [ ] unify keygen API
 - [ ] expand sign to allow hedging, external challenge scalars
 
 ## License
