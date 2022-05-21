@@ -52,13 +52,13 @@ fn x_dbl_add(p: &mut Point, q: &mut Point, xd: &Fe25519) {
 //
 // Input:
 //      xp: proj. x-coordinate on Montgomery curve
-//      xpw: affine x-coordinate of xp
 //      n: Scalar (max 255-bit)
 //
 // Output:
 //      xr: proj. x-coordinate of n*xq
 // verified
-pub fn ladder(xp: &Point, xpw: &Fe25519, n: &GroupScalar) -> Point {
+pub fn ladder(xp: &Point, n: &GroupScalar) -> Point {
+    let xpw = xp.x;
     let mut xr = Point::default();
     let mut xp = *xp;
     let mut bit = 0;
@@ -72,7 +72,7 @@ pub fn ladder(xp: &Point, xpw: &Fe25519, n: &GroupScalar) -> Point {
         prevbit = bit;
 
         swap(&mut xr, &mut xp, b as u8);
-        x_dbl_add(&mut xr, &mut xp, xpw);
+        x_dbl_add(&mut xr, &mut xp, &xpw);
     }
 
     swap(&mut xr, &mut xp, bit as u8);
@@ -87,7 +87,7 @@ pub fn ladder_base(n: &GroupScalar) -> Point {
         x: base_x,
         z: fe25519::one(),
     };
-    ladder(&base, &base_x, n)
+    ladder(&base, n)
 }
 
 // Compress from projective representation (X : Z) to affine x = X*Z^{p-2}, where p = 2^255-19

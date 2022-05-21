@@ -18,7 +18,7 @@ pub fn dh_exchange(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
     let rx = fe25519::unpack(pk);
     let r = point::decompress(&rx);
     let d = scalar::get32(sk);
-    let ss = point::ladder(&r, &rx, &d);
+    let ss = point::ladder(&r, &d);
     let ss = point::compress(&ss);
     fe25519::pack(&ss)
 }

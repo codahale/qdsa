@@ -54,7 +54,7 @@ pub fn verify(m: &[u8], sig: &[u8; 64], pk: &[u8; 32]) -> bool {
 
     let pkx = fe25519::unpack(pk);
     let s_p = point::decompress(&pkx);
-    let h_q = point::ladder(&s_p, &pkx, &h);
+    let h_q = point::ladder(&s_p, &h);
     let s_p = point::ladder_base(&s);
 
     let (bzz, bxz, bxx) = point::b_values(&s_p, &h_q);
