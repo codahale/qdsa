@@ -22,21 +22,19 @@ pub fn clamp(sk: &mut [u8; 32]) {
 
 // verified
 pub fn get32(x: &[u8; 32]) -> GroupScalar {
-    x.iter()
-        .map(|&v| v as u16)
-        .collect::<Vec<u16>>()
-        .try_into()
-        .expect("invalid scalar len")
+    let mut d = GroupScalar::default();
+    for (a, b) in d.iter_mut().zip(x.iter()) {
+        *a = *b as u16
+    }
+    d
 }
 
 // verified
 pub fn get64(x: &[u8; 64]) -> GroupScalar {
-    let t = x
-        .iter()
-        .map(|&v| v as u32)
-        .collect::<Vec<u32>>()
-        .try_into()
-        .expect("invalid scalar len");
+    let mut t = [0u32; 64];
+    for (a, b) in t.iter_mut().zip(x.iter()) {
+        *a = *b as u32
+    }
     barrett_reduce(&t)
 }
 
