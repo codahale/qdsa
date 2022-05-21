@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 pub type GroupScalar = [u16; 32];
 
 const M: [u32; 32] = [
