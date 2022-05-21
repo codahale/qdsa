@@ -95,8 +95,12 @@ fn negate(r: &GroupScalar) -> GroupScalar {
     sub(&zero, r)
 }
 
+pub fn is_pos(r: &GroupScalar) -> bool {
+    r[0] & 1 == 0
+}
+
 pub fn abs(r: &GroupScalar) -> GroupScalar {
-    if r[0] & 1 == 0 {
+    if is_pos(r) {
         *r
     } else {
         negate(r)

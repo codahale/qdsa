@@ -19,6 +19,7 @@ pub fn sign(
     let s = scalar::get32(&sk);
     let s = scalar::mul(&h, &s);
     let s = scalar::sub(&r, &s);
+    let s = scalar::abs(&s);
 
     let mut sig = [0u8; 64];
     sig[..32].copy_from_slice(&rx);
@@ -34,6 +35,9 @@ pub fn verify(
 ) -> bool {
     let rx = fe25519::unpack(&sig[..32].try_into().unwrap());
     let s = scalar::get32_reduced(&sig[32..].try_into().unwrap());
+    if !scalar::is_pos(&s) {
+        return false;
+    }
 
     let h = scalar::get64(&hash(&[&sig[..32], pk, m]));
 
