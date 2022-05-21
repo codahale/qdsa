@@ -19,6 +19,9 @@ pub fn sign(
     sk: &[u8; 64],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
+    let mut sk = *sk;
+    scalar::clamp(&mut sk[32..]);
+
     let r = hash(&[&sk[..32], m]);
     let r = scalar::get64(&r);
     let rx = fe25519::pack(&point::ladder_base(&r));
