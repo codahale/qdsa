@@ -18,6 +18,5 @@ mod x25519;
 pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
     let d = Scalar::clamp(sk);
     let q = point::ladder_base(&d);
-
-    fe25519::pack(&q)
+    q.as_bytes()
 }

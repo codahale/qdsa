@@ -1,20 +1,21 @@
-use crate::fe25519;
+use crate::fe25519::Fe25519;
 use crate::point;
 use crate::scalar::Scalar;
 
 /// Given a public key `pk` and secret key `sk`, returns the X25519 shared secret.
 #[must_use]
 pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
-    let rx = fe25519::unpack(pk);
+    let rx = Fe25519::from_bytes(pk);
     let d = Scalar::clamp(sk);
-    fe25519::pack(&point::ladder(&rx, &d))
+    point::ladder(&rx, &d).as_bytes()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::public_key;
     use hex_literal::hex;
     use rand::{thread_rng, Rng};
+
+    use crate::public_key;
 
     use super::*;
 
