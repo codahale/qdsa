@@ -9,17 +9,15 @@ pub fn dh_keygen(seed: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
     let d = scalar::get32(&sk);
     let q = point::ladder_base(&d);
 
-    let pk = fe25519::pack(&point::compress(&q));
+    let pk = fe25519::pack(&q);
 
     (sk, pk)
 }
 
 pub fn dh_exchange(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
     let rx = fe25519::unpack(pk);
-    let r = point::decompress(&rx);
     let d = scalar::get32(sk);
-    let ss = point::ladder(&r, &d);
-    let ss = point::compress(&ss);
+    let ss = point::ladder(&rx, &d);
     fe25519::pack(&ss)
 }
 

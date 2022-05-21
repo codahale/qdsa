@@ -1,13 +1,6 @@
-use fe25519::Fe25519;
-
 use crate::fe25519;
+use crate::fe25519::Fe25519;
 use crate::scalar::GroupScalar;
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Point {
-    x: Fe25519,
-    z: Fe25519,
-}
 
 // Montgomery ladder computing n*xp via repeated differential additions and constant-time
 // conditional swaps.
@@ -19,10 +12,9 @@ pub struct Point {
 // Output:
 //      xr: proj. x-coordinate of n*xq
 // verified
-pub fn ladder(xp: &Point, n: &GroupScalar) -> Point {
-    let x1 = xp.x;
+pub fn ladder(xp: &Fe25519, n: &GroupScalar) -> Fe25519 {
     let mut x2 = fe25519::one();
-    let mut x3 = x1;
+    let mut x3 = *xp;
     let mut z3 = fe25519::one();
     let mut z2 = fe25519::zero();
     let mut tmp0: Fe25519;
@@ -52,7 +44,7 @@ pub fn ladder(xp: &Point, n: &GroupScalar) -> Point {
         z3 = fe25519::mul121666(&tmp1);
         x3 = fe25519::square(&x3);
         tmp0 = fe25519::add(&tmp0, &z3); // tmp0 + z3;
-        z3 = fe25519::mul(&x1, &z2); // x1 * z2;
+        z3 = fe25519::mul(xp, &z2); // x1 * z2;
         z2 = fe25519::mul(&tmp1, &tmp0); // tmp1 * tmp0;
     }
 
@@ -61,48 +53,12 @@ pub fn ladder(xp: &Point, n: &GroupScalar) -> Point {
 
     z2 = fe25519::invert(&z2);
     x2 = fe25519::mul(&x2, &z2); // x2 * z2;
-
-    Point {
-        x: x2,
-        z: fe25519::one(),
-    }
+    x2
 }
 
 // verified
-pub fn ladder_base(n: &GroupScalar) -> Point {
-    let base_x = [9, 0, 0, 0, 0];
-    let base = Point {
-        x: base_x,
-        z: fe25519::one(),
-    };
-    ladder(&base, n)
-}
-
-// Compress from projective representation (X : Z) to affine x = X*Z^{p-2}, where p = 2^255-19
-//
-// Input:
-//      xp: proj. x-coordinate (X : Z)
-//
-// Output:
-//      r: affine x-coordinate x = X*Z^{p-2}
-// verified
-pub fn compress(xp: &Point) -> Fe25519 {
-    fe25519::freeze(&fe25519::mul(&xp.x, &fe25519::invert(&xp.z)))
-}
-
-// Decompress from affine representation x to projective (x : 1)
-//
-// Input:
-//      r: affine x-coordinate x
-//
-// Output:
-//      xp: proj. x-coordinate (x : 1)
-// verified
-pub fn decompress(r: &Fe25519) -> Point {
-    Point {
-        x: *r,
-        z: fe25519::one(),
-    }
+pub fn ladder_base(n: &GroupScalar) -> Fe25519 {
+    ladder(&[9, 0, 0, 0, 0], n)
 }
 
 /*
@@ -118,14 +74,14 @@ pub fn decompress(r: &Fe25519) -> Point {
  *      bXZ: Element B_XZ of fe25519
  *      bXX: Element B_XX of fe25519
  */
-pub fn b_values(xp: &Point, xq: &Point) -> (Fe25519, Fe25519, Fe25519) {
-    let b0 = fe25519::mul(&xp.x, &xq.x);
-    let b1 = fe25519::mul(&xp.z, &xq.z);
+pub fn b_values(xp: &Fe25519, xq: &Fe25519) -> (Fe25519, Fe25519, Fe25519) {
+    let b0 = fe25519::mul(xp, xq);
+    let b1 = fe25519::mul(&fe25519::one(), &fe25519::one());
     let bzz = fe25519::square(&fe25519::sub(&b0, &b1));
     let b0 = fe25519::add(&b0, &b1);
 
-    let b1 = fe25519::mul(&xp.x, &xq.z);
-    let b2 = fe25519::mul(&xq.x, &xp.z);
+    let b1 = fe25519::mul(xp, &fe25519::one());
+    let b2 = fe25519::mul(xq, &fe25519::one());
     let bxx = fe25519::square(&fe25519::sub(&b1, &b2));
 
     let bxz = fe25519::add(&b1, &b2);

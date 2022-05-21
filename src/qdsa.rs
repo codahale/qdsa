@@ -13,7 +13,7 @@ pub fn keypair(
     let d = scalar::get32(&sk[32..].try_into().unwrap());
     let r = point::ladder_base(&d);
 
-    (sk, fe25519::pack(&point::compress(&r)))
+    (sk, fe25519::pack(&r))
 }
 
 // verified
@@ -25,7 +25,7 @@ pub fn sign(
 ) -> [u8; 64] {
     let r = hash(&[&sk[..32], m]);
     let r = scalar::get64(&r);
-    let rx = fe25519::pack(&point::compress(&point::ladder_base(&r)));
+    let rx = fe25519::pack(&point::ladder_base(&r));
 
     let h = scalar::get64(&hash(&[&rx, pk, m]));
     let h = scalar::abs(&h);
@@ -51,8 +51,7 @@ pub fn verify(
     let h = scalar::get64(&hash(&[&sig[..32], pk, m]));
 
     let pkx = fe25519::unpack(pk);
-    let s_p = point::decompress(&pkx);
-    let h_q = point::ladder(&s_p, &h);
+    let h_q = point::ladder(&pkx, &h);
     let s_p = point::ladder_base(&s);
 
     let (bzz, bxz, bxx) = point::b_values(&s_p, &h_q);
