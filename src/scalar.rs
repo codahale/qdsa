@@ -22,6 +22,7 @@ pub fn get32(x: &[u8; 32]) -> GroupScalar {
     for (a, b) in d.iter_mut().zip(x.iter()) {
         *a = *b as u16
     }
+    reduce_add_sub(&mut d);
     d
 }
 
