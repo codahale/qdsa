@@ -43,4 +43,20 @@ mod tests {
             assert_ne!(ss_a, ss_c);
         }
     }
+
+    #[test]
+    fn dh_interop() {
+        for _ in 0..1000 {
+            let (sk_a, pk_a) = dh_keygen(&thread_rng().gen());
+            let (sk_b, pk_b) = dh_keygen(&thread_rng().gen());
+
+            let ss_a = dh_exchange(&pk_b, &sk_a);
+
+            let pk_a = orion::kex::PublicKey::from(pk_a);
+            let sk_b = orion::hazardous::ecc::x25519::PrivateKey::from(sk_b);
+            let ss_b = orion::hazardous::ecc::x25519::key_agreement(&sk_b, &pk_a).unwrap();
+
+            assert_eq!(ss_b, &ss_a[..]);
+        }
+    }
 }
