@@ -52,7 +52,7 @@ pub fn ladder(xp: &Fe25519, n: &GroupScalar) -> Fe25519 {
 
     z2 = fe25519::invert(&z2);
     x2 = fe25519::mul(&x2, &z2); // x2 * z2;
-    x2
+    fe25519::freeze(&x2)
 }
 
 pub fn ladder_base(n: &GroupScalar) -> Fe25519 {
