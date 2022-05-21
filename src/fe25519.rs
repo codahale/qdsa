@@ -3,7 +3,7 @@ use subtle::ConstantTimeEq;
 
 pub type Fe25519 = [u64; 5];
 
-// verified
+#[inline]
 pub fn swap(a: &mut Fe25519, b: &mut Fe25519, swap: u8) {
     // SAFETY: This is a part of fiat input bounds.
     assert!(swap == 1 || swap == 0);
@@ -15,14 +15,14 @@ pub fn swap(a: &mut Fe25519, b: &mut Fe25519, swap: u8) {
     fiat_25519_selectznz(b, swap, &tmp_y, &tmp_x);
 }
 
-// verified
+#[inline]
 pub fn freeze(r: &Fe25519) -> Fe25519 {
     let mut ret = Default::default();
     fiat_25519_carry(&mut ret, r);
     ret
 }
 
-// verified
+#[inline]
 pub fn unpack(x: &[u8; 32]) -> Fe25519 {
     let mut ret = Default::default();
     let mut x = *x;
@@ -31,14 +31,14 @@ pub fn unpack(x: &[u8; 32]) -> Fe25519 {
     freeze(&ret)
 }
 
-// verified
+#[inline]
 pub fn pack(x: &Fe25519) -> [u8; 32] {
     let mut ret = Default::default();
     fiat_25519_to_bytes(&mut ret, x);
     ret
 }
 
-// verified
+#[inline]
 pub fn iszero(x: &Fe25519) -> bool {
     pack(x).ct_eq(&[0u8; 32]).into()
 }
@@ -51,42 +51,41 @@ pub const fn zero() -> Fe25519 {
     [0, 0, 0, 0, 0]
 }
 
-// verified
+#[inline]
 pub fn add(x: &Fe25519, y: &Fe25519) -> Fe25519 {
     let mut ret = Default::default();
     fiat_25519_add(&mut ret, x, y);
     freeze(&ret)
 }
 
-// verified
+#[inline]
 pub fn sub(x: &Fe25519, y: &Fe25519) -> Fe25519 {
     let mut ret = Default::default();
     fiat_25519_sub(&mut ret, x, y);
     freeze(&ret)
 }
 
-// verified
+#[inline]
 pub fn mul121666(x: &Fe25519) -> Fe25519 {
     let mut ret = Default::default();
     fiat_25519_carry_scmul_121666(&mut ret, x);
     freeze(&ret)
 }
 
-// verified
+#[inline]
 pub fn mul(x: &Fe25519, y: &Fe25519) -> Fe25519 {
     let mut ret = Default::default();
     fiat_25519_carry_mul(&mut ret, x, y);
     freeze(&ret)
 }
 
-// verified
+#[inline]
 pub fn square(x: &Fe25519) -> Fe25519 {
     let mut ret = Default::default();
     fiat_25519_carry_square(&mut ret, x);
     freeze(&ret)
 }
 
-// verified
 pub fn invert(x: &Fe25519) -> Fe25519 {
     /* 2 */
     let z2 = square(x);
