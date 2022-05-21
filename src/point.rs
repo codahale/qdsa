@@ -57,9 +57,10 @@ fn x_dbl_add(p: &mut Point, q: &mut Point, xd: &Fe25519) {
 //
 // Output:
 //      xr: proj. x-coordinate of n*xq
-//      xp: proj. x-coordinate of (n+1)*xp
 // verified
-pub fn ladder(xr: &mut Point, xp: &mut Point, xpw: &Fe25519, n: &GroupScalar) {
+pub fn ladder(xp: &Point, xpw: &Fe25519, n: &GroupScalar) -> Point {
+    let mut xr = Point::default();
+    let mut xp = *xp;
     let mut bit = 0;
     let mut prevbit = 0;
     xr.x = fe25519::one();
@@ -70,23 +71,23 @@ pub fn ladder(xr: &mut Point, xp: &mut Point, xpw: &Fe25519, n: &GroupScalar) {
         let b = bit ^ prevbit;
         prevbit = bit;
 
-        swap(xr, xp, b as u8);
-        x_dbl_add(xr, xp, xpw);
+        swap(&mut xr, &mut xp, b as u8);
+        x_dbl_add(&mut xr, &mut xp, xpw);
     }
 
-    swap(xr, xp, bit as u8);
+    swap(&mut xr, &mut xp, bit as u8);
+
+    xr
 }
 
 // verified
 pub fn ladder_base(n: &GroupScalar) -> Point {
     let base_x = [9, 0, 0, 0, 0];
-    let mut base = Point {
+    let base = Point {
         x: base_x,
         z: fe25519::one(),
     };
-    let mut ret = Point::default();
-    ladder(&mut ret, &mut base, &base_x, n);
-    ret
+    ladder(&base, &base_x, n)
 }
 
 // Compress from projective representation (X : Z) to affine x = X*Z^{p-2}, where p = 2^255-19

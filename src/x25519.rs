@@ -1,6 +1,5 @@
 use crate::fe25519;
 use crate::point;
-use crate::point::Point;
 use crate::scalar;
 
 pub fn dh_keygen(seed: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
@@ -17,10 +16,9 @@ pub fn dh_keygen(seed: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
 
 pub fn dh_exchange(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
     let rx = fe25519::unpack(pk);
-    let mut r = point::decompress(&rx);
+    let r = point::decompress(&rx);
     let d = scalar::get32(sk);
-    let mut ss = Point::default();
-    point::ladder(&mut ss, &mut r, &rx, &d);
+    let ss = point::ladder(&r, &rx, &d);
     let ss = point::compress(&ss);
     fe25519::pack(&ss)
 }
@@ -39,8 +37,10 @@ mod tests {
 
             let ss_a = dh_exchange(&pk_b, &sk_a);
             let ss_b = dh_exchange(&pk_a, &sk_b);
+            let ss_c = dh_exchange(&pk_a, &sk_a);
 
             assert_eq!(ss_a, ss_b);
+            assert_ne!(ss_a, ss_c);
         }
     }
 }

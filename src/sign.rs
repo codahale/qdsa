@@ -1,7 +1,6 @@
 use sha3::Digest;
 use sha3::Sha3_512;
 
-use crate::point::Point;
 use crate::{fe25519, point, scalar};
 
 // verified
@@ -54,9 +53,8 @@ pub fn verify(m: &[u8], sig: &[u8; 64], pk: &[u8; 32]) -> bool {
     let h = scalar::get64(&hash(&sm));
 
     let pkx = fe25519::unpack(pk);
-    let mut s_p = point::decompress(&pkx);
-    let mut h_q = Point::default();
-    point::ladder(&mut h_q, &mut s_p, &pkx, &h);
+    let s_p = point::decompress(&pkx);
+    let h_q = point::ladder(&s_p, &pkx, &h);
     let s_p = point::ladder_base(&s);
 
     let (bzz, bxz, bxx) = point::b_values(&s_p, &h_q);
