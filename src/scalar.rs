@@ -25,6 +25,12 @@ pub fn get32(x: &[u8; 32]) -> GroupScalar {
     d
 }
 
+pub fn get32_reduced(x: &[u8; 32]) -> GroupScalar {
+    let mut d = get32(x);
+    reduce_add_sub(&mut d);
+    d
+}
+
 pub fn get64(x: &[u8; 64]) -> GroupScalar {
     let mut t = [0u32; 64];
     for (a, b) in t.iter_mut().zip(x.iter()) {

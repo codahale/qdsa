@@ -45,7 +45,7 @@ pub fn verify(
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> bool {
     let rx = fe25519::unpack(&sig[..32].try_into().unwrap());
-    let s = scalar::get32(&sig[32..].try_into().unwrap());
+    let s = scalar::get32_reduced(&sig[32..].try_into().unwrap());
 
     let h = scalar::get64(&hash(&[&sig[..32], pk, m]));
 
