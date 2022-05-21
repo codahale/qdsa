@@ -5,9 +5,7 @@ pub fn keypair(
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> ([u8; 64], [u8; 32]) {
     let mut sk = hash(&[seed]);
-    sk[32] &= 248;
-    sk[63] &= 127;
-    sk[63] |= 64;
+    scalar::clamp(&mut sk[32..]);
 
     let d = scalar::get32(&sk[32..].try_into().unwrap());
     let r = point::ladder_base(&d);

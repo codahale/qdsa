@@ -11,7 +11,7 @@ const MU: [u32; 33] = [
     0x0f,
 ];
 
-pub fn clamp(sk: &mut [u8; 32]) {
+pub fn clamp(sk: &mut [u8]) {
     sk[0] &= 248;
     sk[31] &= 127;
     sk[31] |= 64;
