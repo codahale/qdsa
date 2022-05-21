@@ -9,44 +9,6 @@ pub struct Point {
     z: Fe25519,
 }
 
-// verified
-fn swap(a: &mut Point, b: &mut Point, swap: u8) {
-    fe25519::swap(&mut a.x, &mut b.x, swap);
-    fe25519::swap(&mut a.z, &mut b.z, swap);
-}
-
-// Simultaneous xDBL and xADD operation on the Montgomery curve.
-//
-// Input:
-//      xp: proj. x-coordinate on Montgomery curve
-//      xq: proj. x-coordinate on Montgomery curve
-//      xd: affine x-coordinate of difference xp-xq
-//
-// Output:
-//      xp: proj. x-coordinate of 2*xp
-//      xq: proj. x-coordinate of xp+xq
-// verified
-fn x_dbl_add(p: &mut Point, q: &mut Point, xd: &Fe25519) {
-    let mut b0 = fe25519::add(&p.x, &p.z);
-    let mut b1 = fe25519::sub(&p.x, &p.z);
-    p.x = fe25519::add(&q.x, &q.z);
-    p.z = fe25519::sub(&q.x, &q.z);
-    q.x = fe25519::mul(&p.z, &b0);
-    p.z = fe25519::mul(&p.x, &b1);
-    p.x = fe25519::add(&p.z, &q.x);
-    q.z = fe25519::sub(&q.x, &p.z);
-    q.x = fe25519::square(&p.x);
-    p.x = fe25519::square(&q.z);
-    q.z = fe25519::mul(&p.x, xd);
-    p.x = fe25519::square(&b0);
-    b0 = fe25519::square(&b1);
-    p.z = fe25519::sub(&p.x, &b0);
-    p.x = fe25519::mul(&b0, &p.x);
-    b1 = fe25519::mul121666(&p.z);
-    b1 = fe25519::add(&b1, &b0);
-    p.z = fe25519::mul(&b1, &p.z);
-}
-
 // Montgomery ladder computing n*xp via repeated differential additions and constant-time
 // conditional swaps.
 //
@@ -58,26 +20,52 @@ fn x_dbl_add(p: &mut Point, q: &mut Point, xd: &Fe25519) {
 //      xr: proj. x-coordinate of n*xq
 // verified
 pub fn ladder(xp: &Point, n: &GroupScalar) -> Point {
-    let xpw = xp.x;
-    let mut xr = Point::default();
-    let mut xp = *xp;
-    let mut bit = 0;
-    let mut prevbit = 0;
-    xr.x = fe25519::one();
-    xr.z = fe25519::zero();
+    let x1 = xp.x;
+    let mut x2 = fe25519::one();
+    let mut x3 = x1;
+    let mut z3 = fe25519::one();
+    let mut z2 = fe25519::zero();
+    let mut tmp0: Fe25519;
+    let mut tmp1: Fe25519;
+    let mut swap_bit: u8 = 0;
 
-    for i in (0..=254).rev() {
-        bit = (n[i >> 3] >> (i & 7)) & 1;
-        let b = bit ^ prevbit;
-        prevbit = bit;
+    for idx in (0..=254).rev() {
+        let bit = ((n[idx >> 3] >> (idx & 7)) & 1) as u8;
+        swap_bit ^= bit;
+        fe25519::swap(&mut x2, &mut x3, swap_bit);
+        fe25519::swap(&mut z2, &mut z3, swap_bit);
+        swap_bit = bit;
 
-        swap(&mut xr, &mut xp, b as u8);
-        x_dbl_add(&mut xr, &mut xp, &xpw);
+        tmp0 = fe25519::sub(&x3, &z3); // x3 - z3;
+        tmp1 = fe25519::sub(&x2, &z2); // x2 - z2;
+        x2 = fe25519::add(&x2, &z2); // x2 + z2;
+        z2 = fe25519::add(&x3, &z3); // x3 + z3;
+        z3 = fe25519::mul(&tmp0, &x2); // tmp0 * x2;
+        z2 = fe25519::mul(&z2, &tmp1); // z2 * tmp1;
+        tmp0 = fe25519::square(&tmp1);
+        tmp1 = fe25519::square(&x2);
+        x3 = fe25519::add(&z3, &z2); // z3 + z2;
+        z2 = fe25519::sub(&z3, &z2); // z3 - z2;
+        x2 = fe25519::mul(&tmp1, &tmp0); // tmp1 * tmp0;
+        tmp1 = fe25519::sub(&tmp1, &tmp0); // tmp1 - tmp0;
+        z2 = fe25519::square(&z2);
+        z3 = fe25519::mul121666(&tmp1);
+        x3 = fe25519::square(&x3);
+        tmp0 = fe25519::add(&tmp0, &z3); // tmp0 + z3;
+        z3 = fe25519::mul(&x1, &z2); // x1 * z2;
+        z2 = fe25519::mul(&tmp1, &tmp0); // tmp1 * tmp0;
     }
 
-    swap(&mut xr, &mut xp, bit as u8);
+    fe25519::swap(&mut x2, &mut x3, swap_bit);
+    fe25519::swap(&mut z2, &mut z3, swap_bit);
 
-    xr
+    z2 = fe25519::invert(&z2);
+    x2 = fe25519::mul(&x2, &z2); // x2 * z2;
+
+    Point {
+        x: x2,
+        z: fe25519::one(),
+    }
 }
 
 // verified
