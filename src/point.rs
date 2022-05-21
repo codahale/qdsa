@@ -129,28 +129,28 @@ pub fn decompress(r: &Fe25519) -> Point {
  *      bXZ: Element B_XZ of fe25519
  *      bXX: Element B_XX of fe25519
  */
-pub fn b_values(bzz: &mut Fe25519, bxz: &mut Fe25519, bxx: &mut Fe25519, xp: &Point, xq: &Point) {
+pub fn b_values(xp: &Point, xq: &Point) -> (Fe25519, Fe25519, Fe25519) {
     let b0 = fe25519::mul(&xp.x, &xq.x);
     let b1 = fe25519::mul(&xp.z, &xq.z);
-    *bzz = fe25519::sub(&b0, &b1);
-    *bzz = fe25519::square(bzz);
+    let bzz = fe25519::square(&fe25519::sub(&b0, &b1));
     let b0 = fe25519::add(&b0, &b1);
 
     let b1 = fe25519::mul(&xp.x, &xq.z);
     let b2 = fe25519::mul(&xq.x, &xp.z);
-    *bxx = fe25519::sub(&b1, &b2);
-    *bxx = fe25519::square(bxx);
+    let bxx = fe25519::square(&fe25519::sub(&b1, &b2));
 
-    *bxz = fe25519::add(&b1, &b2);
-    *bxz = fe25519::mul(bxz, &b0);
+    let bxz = fe25519::add(&b1, &b2);
+    let bxz = fe25519::mul(&bxz, &b0);
     let b0 = fe25519::mul(&b1, &b2);
     let b0 = fe25519::add(&b0, &b0);
     let b0 = fe25519::add(&b0, &b0);
     let b1 = fe25519::add(&b0, &b0);
     let b1 = fe25519::mul121666(&b1);
     let b0 = fe25519::sub(&b1, &b0);
-    *bxz = fe25519::add(bxz, &b0);
-    *bxz = fe25519::add(bxz, bxz);
+    let bxz = fe25519::add(&bxz, &b0);
+    let bxz = fe25519::add(&bxz, &bxz);
+
+    (bzz, bxz, bxx)
 }
 
 // Verify whether B_XXrx^2 - B_XZrx + B_ZZ = 0
