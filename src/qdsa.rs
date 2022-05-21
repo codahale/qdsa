@@ -5,7 +5,7 @@ use crate::{fe25519, point, scalar};
 
 // verified
 pub fn keypair(seed: &[u8; 32]) -> ([u8; 64], [u8; 32]) {
-    let mut sk = hash(seed);
+    let mut sk = hash(&[seed]);
     sk[32] &= 248;
     sk[63] &= 127;
     sk[63] |= 64;
@@ -18,39 +18,27 @@ pub fn keypair(seed: &[u8; 32]) -> ([u8; 64], [u8; 32]) {
 
 // verified
 pub fn sign(m: &[u8], pk: &[u8; 32], sk: &[u8; 64]) -> [u8; 64] {
-    let mut sm = Vec::with_capacity(m.len() + 32);
-    sm.extend(&sk[..32]);
-    sm.extend(m);
-
-    let r = hash(&sm);
+    let r = hash(&[&sk[..32], m]);
     let r = scalar::get64(&r);
     let rx = fe25519::pack(&point::compress(&point::ladder_base(&r)));
 
-    sm.clear();
-    sm.extend(&rx);
-    sm.extend(pk);
-    sm.extend(m);
-    let h = scalar::get64(&hash(&sm));
+    let h = scalar::get64(&hash(&[&rx, pk, m]));
     let h = scalar::abs(&h);
     let s = scalar::get32(&sk[32..].try_into().unwrap());
     let s = scalar::mul(&h, &s);
     let s = scalar::sub(&r, &s);
 
-    sm.clear();
-    sm.extend(&rx);
-    sm.extend(scalar::pack(&s));
-    sm.try_into().unwrap()
+    let mut sig = [0u8; 64];
+    sig[..32].copy_from_slice(&rx);
+    sig[32..].copy_from_slice(&scalar::pack(&s));
+    sig
 }
 
 pub fn verify(m: &[u8], sig: &[u8; 64], pk: &[u8; 32]) -> bool {
     let rx = fe25519::unpack(&sig[..32].try_into().unwrap());
     let s = scalar::get32(&sig[32..].try_into().unwrap());
 
-    let mut sm = Vec::new();
-    sm.extend(&sig[..32]);
-    sm.extend(pk);
-    sm.extend(m);
-    let h = scalar::get64(&hash(&sm));
+    let h = scalar::get64(&hash(&[&sig[..32], pk, m]));
 
     let pkx = fe25519::unpack(pk);
     let s_p = point::decompress(&pkx);
@@ -61,9 +49,11 @@ pub fn verify(m: &[u8], sig: &[u8; 64], pk: &[u8; 32]) -> bool {
     point::check(&bzz, &bxz, &bxx, &rx)
 }
 
-fn hash(bin: &[u8]) -> [u8; 64] {
+fn hash(bin: &[&[u8]]) -> [u8; 64] {
     let mut hasher = Sha3_512::new();
-    hasher.update(bin);
+    for data in bin {
+        hasher.update(data);
+    }
     hasher.finalize().into()
 }
 
