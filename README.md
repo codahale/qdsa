@@ -8,7 +8,7 @@ exception of making the hash function generic.
 
 ## TODO
 
-- [ ] expand sign to allow hedging, external challenge scalars
+- [ ] Elligator2 support
 
 ## License
 
