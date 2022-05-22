@@ -1,9 +1,11 @@
 use std::ops::{Add, Mul, Neg, Sub};
 
+/// A scalar value of Curve25519.
 #[derive(Copy, Clone, Default)]
 pub struct Scalar(pub(crate) [u16; 32]);
 
 impl Scalar {
+    /// Clamps the given byte array and returns a valid [Scalar].
     #[inline]
     pub fn clamp(x: &[u8; 32]) -> Scalar {
         let mut x = *x;
@@ -14,6 +16,7 @@ impl Scalar {
         Scalar::from_bits(&x)
     }
 
+    /// Reduces the given little-endian array modulo `l`.
     #[inline]
     pub fn reduce(x: &[u8; 32]) -> Scalar {
         let mut d = Scalar::from_bits(x);
@@ -21,6 +24,7 @@ impl Scalar {
         d
     }
 
+    /// Reduces the given little-endian array modulo `l`.
     #[inline]
     pub fn wide_reduce(x: &[u8; 64]) -> Scalar {
         let mut t = [0u32; 64];
@@ -30,6 +34,7 @@ impl Scalar {
         barrett_reduce(&t)
     }
 
+    /// Returns the scalar as a byte array.
     #[inline]
     pub fn as_bytes(&self) -> [u8; 32] {
         let mut x = [0u8; 32];
@@ -39,20 +44,13 @@ impl Scalar {
         x
     }
 
-    #[inline]
-    fn from_bits(x: &[u8; 32]) -> Scalar {
-        let mut d = Scalar::default();
-        for (a, b) in d.0.iter_mut().zip(x.iter()) {
-            *a = *b as u16
-        }
-        d
-    }
-
+    /// Returns `true` iff the scalar is greater than zero.
     #[inline]
     pub fn is_pos(&self) -> bool {
         self.0[0] & 1 == 0
     }
 
+    /// Returns the absolute value of the scalar.
     #[inline]
     pub fn abs(&self) -> Scalar {
         if self.is_pos() {
@@ -60,6 +58,15 @@ impl Scalar {
         } else {
             -self
         }
+    }
+
+    #[inline]
+    fn from_bits(x: &[u8; 32]) -> Scalar {
+        let mut d = Scalar::default();
+        for (a, b) in d.0.iter_mut().zip(x.iter()) {
+            *a = *b as u16
+        }
+        d
     }
 }
 
