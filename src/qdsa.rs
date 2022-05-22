@@ -10,12 +10,9 @@ pub fn sign(
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
     let d = Scalar::clamp(sk);
-
-    let k = Scalar::wide_reduce(&hash(&[nonce, m]));
-    let i = (&G * &k).as_bytes();
-
-    let r = Scalar::wide_reduce(&hash(&[&i, pk, m])).abs();
-    let s = (&k - &(&r * &d)).abs();
+    let (k, i) = sign_commitment(hash(&[nonce, m]));
+    let i = i.as_bytes();
+    let s = sign_challenge(&d, &k, hash(&[&i, pk, m]));
 
     let mut sig = [0u8; 64];
     sig[..32].copy_from_slice(&i);
@@ -31,29 +28,40 @@ pub fn verify(
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> bool {
     let q = Point::from_bytes(pk);
-
     let i = Point::from_bytes(&sig[..32].try_into().unwrap());
     let s = Scalar::reduce(&sig[32..].try_into().unwrap());
+
+    verify_challenge(&q, hash(&[&sig[..32], pk, m]), &i, &s)
+}
+
+/// Given an ephemeral value (e.g. `H(nonce || d || m)`), returns the commitment scalar `k` and
+/// commitment point `I`.
+pub fn sign_commitment(ephemeral: [u8; 64]) -> (Scalar, Point) {
+    let k = Scalar::wide_reduce(&ephemeral);
+    (k, (&G * &k))
+}
+
+/// Given a challenge (e.g. `H(I || Q || m)`), returns the proof scalar `s`.
+pub fn sign_challenge(d: &Scalar, k: &Scalar, challenge: [u8; 64]) -> Scalar {
+    let r = Scalar::wide_reduce(&challenge).abs();
+    (k - &(&r * d)).abs()
+}
+
+/// Verifies a counterfactual challenge, given a commitment point and proof scalar.
+///
+/// * `Q`: the signer's public key
+/// * `challenge`: the re-calculated challenge e.g. `H(I || Q || m)`
+/// * `I`: the commitment point from the signature
+/// * `s`: the proof scalar from the signature
+pub fn verify_challenge(q: &Point, challenge: [u8; 64], i: &Point, s: &Scalar) -> bool {
+    // Disallow negative proof scalars. We never produce negative proof scalars, and allowing
+    // negative values here allows for malleable signatures.
     if !s.is_pos() {
         return false;
     }
 
-    let r_p = Scalar::wide_reduce(&hash(&[&sig[..32], pk, m]));
-
-    verify_detached(&q, &r_p, &i, &s)
-}
-
-/// Verifies the detached components of a signature:
-///
-/// * `q`: the signer's public key
-/// * `r_p`: the re-calculated challenge scalar `H(i || q || m)`
-/// * `i`: the commitment point from the signature
-/// * `s`: the proof scalar from the signature
-pub fn verify_detached(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool {
-    let t0 = &G * s;
-    let t1 = q * r_p;
-
-    let (bzz, bxz, bxx) = b_values(&t0, &t1);
+    let r_p = Scalar::wide_reduce(&challenge);
+    let (bzz, bxz, bxx) = b_values(&(&G * s), &(q * &r_p));
     check(&bzz, &bxz, &bxx, i)
 }
 

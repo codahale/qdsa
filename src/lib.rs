@@ -17,7 +17,7 @@ mod x25519;
 /// Cryptographic functionality which will let you do stupid things to yourself.
 pub mod hazmat {
     pub use crate::point::{Point, G};
-    pub use crate::qdsa::verify_detached;
+    pub use crate::qdsa::{sign_challenge, sign_commitment, verify_challenge};
     pub use crate::scalar::Scalar;
 }
 
