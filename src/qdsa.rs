@@ -60,8 +60,11 @@ pub fn verify_challenge(q: &Point, challenge: [u8; 64], i: &Point, s: &Scalar) -
         return false;
     }
 
-    let r_p = Scalar::wide_reduce(&challenge);
-    let (bzz, bxz, bxx) = b_values(&(&G * s), &(q * &r_p));
+    let t0 = &G * s; // t0 = [s]G
+    let t1 = q * &Scalar::wide_reduce(&challenge); // t1 = [rd]G
+
+    // return true iff ±I ∈ {±([s]G + [rd]G), ±([s]G - [rd]G)}
+    let (bzz, bxz, bxx) = b_values(&t0, &t1);
     check(&bzz, &bxz, &bxx, i)
 }
 
