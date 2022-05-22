@@ -1,11 +1,12 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use rand::Rng;
+use rand::{thread_rng, Rng};
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
     Shake128,
 };
+use subtle::Choice;
 
-use qdsa::{public_key, sign, verify, x25519};
+use qdsa::{public_key, sign, verify, x25519, Point, Scalar, G};
 
 fn keygen_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("keygen");
@@ -28,8 +29,8 @@ fn ecdh_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("ecdh");
 
     g.bench_function("x25519-qdsa", |b| {
-        let sk_a = rand::thread_rng().gen();
-        let pk_b = public_key(&rand::thread_rng().gen());
+        let sk_a = thread_rng().gen();
+        let pk_b = public_key(&thread_rng().gen());
 
         b.iter(|| x25519(&sk_a, &pk_b))
     });
@@ -49,9 +50,9 @@ fn sign_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("sign");
 
     g.bench_function("qdsa", |b| {
-        let sk = rand::thread_rng().gen();
+        let sk = thread_rng().gen();
         let pk = public_key(&sk);
-        let nonce = rand::thread_rng().gen();
+        let nonce = thread_rng().gen();
         let message = b"this is a short message";
 
         b.iter(|| sign(&pk, &sk, &nonce, message, shake128))
@@ -64,14 +65,36 @@ fn verify_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("verify");
 
     g.bench_function("qdsa", |b| {
-        let sk = rand::thread_rng().gen();
+        let sk = thread_rng().gen();
         let pk = public_key(&sk);
-        let nonce = rand::thread_rng().gen();
+        let nonce = thread_rng().gen();
         let message = b"this is a short message";
         let sig = sign(&pk, &sk, &nonce, message, shake128);
 
         b.iter(|| verify(&pk, &sig, message, shake128))
     });
+
+    g.finish();
+}
+
+fn elligator_benchmarks(c: &mut Criterion) {
+    let mut g = c.benchmark_group("elligator");
+
+    fn generate_key() -> (Point, [u8; 32]) {
+        loop {
+            let d = Scalar::reduce(&thread_rng().gen());
+            let q = &G * &d;
+            if let Some(rep) = q.to_elligator(Choice::from(0)) {
+                return (q, rep);
+            }
+        }
+    }
+
+    let (q, rep) = generate_key();
+
+    g.bench_function("encode", |b| b.iter(|| q.to_elligator(Choice::from(0))));
+
+    g.bench_function("decode", |b| b.iter(|| Point::from_elligator(&rep)));
 
     g.finish();
 }
@@ -93,6 +116,7 @@ criterion_group!(
     keygen_benchmarks,
     ecdh_benchmarks,
     sign_benchmarks,
-    verify_benchmarks
+    verify_benchmarks,
+    elligator_benchmarks,
 );
 criterion_main!(benches);

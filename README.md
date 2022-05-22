@@ -6,10 +6,6 @@ Curve25519, plus X25519 key agreement.
 Ported from the [reference C version](https://joostrenes.nl/software/cref-g1.tar.gz) by Joost Renes, with the main
 exception of making the hash function generic.
 
-## TODO
-
-- [ ] Elligator2 support
-
 ## License
 
 Copyright © 2022 Coda Hale

@@ -60,7 +60,9 @@ pub fn verify_detached(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool {
 // Return `true` iff `B_XX(i)^2 - B_XZ(i) + B_ZZ = 0`.
 #[must_use]
 fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> bool {
-    (&(&(bxx * &i.square()) - &(bxz * i)) + bzz).is_zero()
+    (&(&(bxx * &i.square()) - &(bxz * i)) + bzz)
+        .is_zero()
+        .into()
 }
 
 // Return the three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of t0 and t1.

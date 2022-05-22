@@ -1,7 +1,7 @@
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
-use subtle::ConstantTimeEq;
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 
 use crate::Scalar;
 
@@ -13,6 +13,29 @@ pub const G: Point = Point([9, 0, 0, 0, 0]);
 pub struct Point(pub(crate) [u64; 5]);
 
 impl Point {
+    /// Decodes the given Elligator2 representative and returns a [Point].
+    pub fn from_elligator(rep: &[u8; 32]) -> Point {
+        let r_0 = Point::from_bytes(rep);
+        let one = Point::ONE;
+        let d_1 = &one + &r_0.square2(); /* 2r^2 */
+
+        let d = &MONTGOMERY_A_NEG * &(d_1.invert()); /* A/(1+2r^2) */
+
+        let d_sq = &d.square();
+        let au = &MONTGOMERY_A * &d;
+
+        let inner = &(d_sq + &au) + &one;
+        let eps = &d * &inner; /* eps = d^3 + Ad^2 + d */
+
+        let (eps_is_sq, _eps) = Point::sqrt_ratio_i(&eps, &one);
+
+        let zero = Point::ZERO;
+        let tmp = Point::conditional_select(&MONTGOMERY_A, &zero, eps_is_sq); /* 0, or A if nonsquare*/
+        let mut u = &d + &tmp; /* d, or d+A if nonsquare */
+        u.conditional_negate(!eps_is_sq); /* d, or -d-A if nonsquare */
+        u
+    }
+
     /// Parses the given byte array as a [Point].
     ///
     /// All possible byte arrays are valid points.
@@ -39,10 +62,19 @@ impl Point {
     /// The `1` value of Curve25519.
     pub const ONE: Point = Point([1, 0, 0, 0, 0]);
 
+    /// The `-1` value of Curve25519.
+    pub const MINUS_ONE: Point = Point([
+        2251799813685228,
+        2251799813685247,
+        2251799813685247,
+        2251799813685247,
+        2251799813685247,
+    ]);
+
     /// Returns `true` iff the point is equal to zero.
     #[inline]
-    pub fn is_zero(&self) -> bool {
-        self.as_bytes().ct_eq(&[0u8; 32]).into()
+    pub fn is_zero(&self) -> Choice {
+        self.as_bytes().ct_eq(&[0u8; 32])
     }
 
     /// Returns `self * 12166 mod m`.
@@ -63,118 +95,133 @@ impl Point {
 
     /// Returns the multiplicative inverse of the point.
     pub fn invert(&self) -> Point {
-        /* 2 */
-        let z2 = self.square();
-        /* 4 */
-        let t1 = z2.square();
-        /* 8 */
-        let t0 = t1.square();
-        /* 9 */
-        let z9 = &t0 * self;
-        /* 11 */
-        let z11 = &z9 * &z2;
-        /* 22 */
-        let t0 = z11.square();
-        /* 2^5 - 2^0 = 31 */
-        let z2 = &t0 * &z9;
+        // The bits of p-2 = 2^255 -19 -2 are 11010111111...11.
+        //
+        //                                 nonzero bits of exponent
+        let (t19, t3) = self.pow22501(); // t19: 249..0 ; t3: 3,1,0
+        let t20 = t19.pow2k(5); // 254..5
+        &t20 * &t3 // 254..5,3,1,0
+    }
 
-        /* 2^6 - 2^1 */
-        let t0 = z2.square();
-        /* 2^7 - 2^2 */
-        let t1 = t0.square();
-        /* 2^8 - 2^3 */
-        let t0 = t1.square();
-        /* 2^9 - 2^4 */
-        let t1 = t0.square();
-        /* 2^10 - 2^5 */
-        let t0 = t1.square();
-        /* 2^10 - 2^0 */
-        let z2 = &t0 * &z2;
+    /// Returns the Elligator2 representative, if any.
+    pub fn to_elligator(&self, v_is_negative: Choice) -> Option<[u8; 32]> {
+        let one = Point::ONE;
+        let u = Point::from_bytes(&self.as_bytes());
+        let u_plus_a = &u + &MONTGOMERY_A;
+        let uu_plus_u_a = &u * &u_plus_a;
 
-        /* 2^11 - 2^1 */
-        let mut t0 = z2.square();
-        /* 2^12 - 2^2 */
-        let mut t1 = t0.square();
-        /* 2^20 - 2^10 */
-        for _ in (2..10).step_by(2) {
-            t0 = t1.square();
-            t1 = t0.square();
+        // Condition: u is on the curve
+        let vv = &(&u * &uu_plus_u_a) + &u;
+        let (u_is_on_curve, _v) = Point::sqrt_ratio_i(&vv, &one);
+        if !bool::from(u_is_on_curve) {
+            return None;
         }
-        /* 2^20 - 2^0 */
-        let z9 = &t1 * &z2;
 
-        /* 2^21 - 2^1 */
-        let mut t0 = z9.square();
-        /* 2^22 - 2^2 */
-        let mut t1 = t0.square();
-        /* 2^40 - 2^20 */
-        for _ in (2..20).step_by(2) {
-            t0 = t1.square();
-            t1 = t0.square();
+        // Condition: u != -A
+        if u == MONTGOMERY_A_NEG {
+            return None;
         }
-        /* 2^40 - 2^0 */
-        let t0 = &t1 * &z9;
 
-        /* 2^41 - 2^1 */
-        let mut t1 = t0.square();
-        /* 2^42 - 2^2 */
-        let mut t0 = t1.square();
-        /* 2^50 - 2^10 */
-        for _ in (2..10).step_by(2) {
-            t1 = t0.square();
-            t0 = t1.square();
+        // Condition: -2u(u+A) is a square
+        let uu2_plus_u_a2 = &uu_plus_u_a + &uu_plus_u_a;
+        // We compute root = sqrt(-1/2u(u+A)) to speed up the calculation.
+        // This is a square if and only if -2u(u+A) is.
+        let (is_square, root) = Point::sqrt_ratio_i(&Point::MINUS_ONE, &uu2_plus_u_a2);
+        if !bool::from(is_square | root.is_zero()) {
+            return None;
         }
-        /* 2^50 - 2^0 */
-        let z2 = &t0 * &z2;
 
-        /* 2^51 - 2^1 */
-        let mut t0 = z2.square();
-        /* 2^52 - 2^2 */
-        let mut t1 = t0.square();
-        /* 2^100 - 2^50 */
-        for _ in (2..50).step_by(2) {
-            t0 = t1.square();
-            t1 = t0.square();
+        // if !v_is_negative: r = sqrt(-u / 2(u + a)) = root * u
+        // if  v_is_negative: r = sqrt(-(u+A) / 2u)   = root * (u + A)
+        let add = Point::conditional_select(&u, &u_plus_a, v_is_negative);
+        let r = &root * &add;
+
+        // Both r and -r are valid results. Pick the nonnegative one.
+        let result = Point::conditional_select(&r, &-&r, r.is_negative());
+
+        Some(result.as_bytes())
+    }
+
+    fn square2(&self) -> Point {
+        let mut square = self.pow2k(1);
+        for i in 0..5 {
+            square.0[i] *= 2;
         }
-        /* 2^100 - 2^0 */
-        let z9 = &t1 * &z2;
+        square
+    }
 
-        /* 2^101 - 2^1 */
-        let mut t1 = z9.square();
-        /* 2^102 - 2^2 */
-        let mut t0 = t1.square();
-        /* 2^200 - 2^100 */
-        for _ in (2..100).step_by(2) {
-            t1 = t0.square();
-            t0 = t1.square();
+    fn sqrt_ratio_i(u: &Point, v: &Point) -> (Choice, Point) {
+        let v3 = &v.square() * v;
+        let v7 = &v3.square() * v;
+        let mut r = &(u * &v3) * &(u * &v7).pow_p58();
+        let check = v * &r.square();
+
+        let i = &SQRT_M1;
+
+        let correct_sign_sqrt = check.ct_eq(u);
+        let flipped_sign_sqrt = check.ct_eq(&(-u));
+        let flipped_sign_sqrt_i = check.ct_eq(&(&(-u) * i));
+
+        let r_prime = &SQRT_M1 * &r;
+        r.conditional_assign(&r_prime, flipped_sign_sqrt | flipped_sign_sqrt_i);
+
+        // Choose the nonnegative square root.
+        let r_is_negative = r.is_negative();
+        r.conditional_negate(r_is_negative);
+
+        let was_nonzero_square = correct_sign_sqrt | flipped_sign_sqrt;
+
+        (was_nonzero_square, r)
+    }
+
+    fn is_negative(&self) -> Choice {
+        let bytes = self.as_bytes();
+        (bytes[0] & 1).into()
+    }
+
+    fn pow2k(&self, k: u32) -> Point {
+        debug_assert!(k > 0);
+        let mut output = *self;
+        for _ in 0..k {
+            let input = output.0;
+            fiat_25519_carry_square(&mut output.0, &input);
         }
-        /* 2^200 - 2^0 */
-        let t1 = &t0 * &z9;
+        output
+    }
 
-        /* 2^201 - 2^1 */
-        let mut t0 = t1.square();
-        /* 2^202 - 2^2 */
-        let mut t1 = t0.square();
-        /* 2^250 - 2^50 */
-        for _ in (2..50).step_by(2) {
-            t0 = t1.square();
-            t1 = t0.square();
-        }
-        /* 2^250 - 2^0 */
-        let t0 = &t1 * &z2;
+    fn pow22501(&self) -> (Point, Point) {
+        let t0 = self.square(); // 1         e_0 = 2^1
+        let t1 = t0.square().square(); // 3         e_1 = 2^3
+        let t2 = self * &t1; // 3,0       e_2 = 2^3 + 2^0
+        let t3 = &t0 * &t2; // 3,1,0
+        let t4 = t3.square(); // 4,2,1
+        let t5 = &t2 * &t4; // 4,3,2,1,0
+        let t6 = t5.pow2k(5); // 9,8,7,6,5
+        let t7 = &t6 * &t5; // 9,8,7,6,5,4,3,2,1,0
+        let t8 = t7.pow2k(10); // 19..10
+        let t9 = &t8 * &t7; // 19..0
+        let t10 = t9.pow2k(20); // 39..20
+        let t11 = &t10 * &t9; // 39..0
+        let t12 = t11.pow2k(10); // 49..10
+        let t13 = &t12 * &t7; // 49..0
+        let t14 = t13.pow2k(50); // 99..50
+        let t15 = &t14 * &t13; // 99..0
+        let t16 = t15.pow2k(100); // 199..100
+        let t17 = &t16 * &t15; // 199..0
+        let t18 = t17.pow2k(50); // 249..50
+        let t19 = &t18 * &t13; // 249..0
 
-        /* 2^251 - 2^1 */
-        let t1 = t0.square();
-        /* 2^252 - 2^2 */
-        let t0 = t1.square();
-        /* 2^253 - 2^3 */
-        let t1 = t0.square();
-        /* 2^254 - 2^4 */
-        let t0 = t1.square();
-        /* 2^255 - 2^5 */
-        let t1 = t0.square();
-        /* 2^255 - 21 */
-        &t1 * &z11
+        (t19, t3)
+    }
+
+    /// Raise this field element to the power (p-5)/8 = 2^252 -3.
+    fn pow_p58(&self) -> Point {
+        // The bits of (p-5)/8 are 101111.....11.
+        //
+        //                                 nonzero bits of exponent
+        let (t19, _) = self.pow22501(); // 249..0
+        let t20 = t19.pow2k(2); // 251..2
+        self * &t20 // 251..2,0
     }
 
     #[inline]
@@ -205,6 +252,16 @@ impl Add for &Point {
         let mut ret = Point::default();
         fiat_25519_add(&mut ret.0, &self.0, &rhs.0);
         ret.reduce()
+    }
+}
+
+impl Neg for &Point {
+    type Output = Point;
+
+    fn neg(self) -> Self::Output {
+        let mut output = *self;
+        fiat_25519_opp(&mut output.0, &self.0);
+        output.reduce()
     }
 }
 
@@ -279,5 +336,86 @@ impl Mul<&Scalar> for &Point {
     }
 }
 
+impl Eq for Point {}
+
+impl PartialEq for Point {
+    fn eq(&self, other: &Point) -> bool {
+        self.ct_eq(other).unwrap_u8() == 1u8
+    }
+}
+
+impl ConstantTimeEq for Point {
+    fn ct_eq(&self, other: &Point) -> Choice {
+        self.as_bytes().ct_eq(&other.as_bytes())
+    }
+}
+
+impl ConditionallySelectable for Point {
+    fn conditional_select(a: &Point, b: &Point, choice: Choice) -> Point {
+        Point([
+            u64::conditional_select(&a.0[0], &b.0[0], choice),
+            u64::conditional_select(&a.0[1], &b.0[1], choice),
+            u64::conditional_select(&a.0[2], &b.0[2], choice),
+            u64::conditional_select(&a.0[3], &b.0[3], choice),
+            u64::conditional_select(&a.0[4], &b.0[4], choice),
+        ])
+    }
+
+    fn conditional_assign(&mut self, other: &Point, choice: Choice) {
+        self.0[0].conditional_assign(&other.0[0], choice);
+        self.0[1].conditional_assign(&other.0[1], choice);
+        self.0[2].conditional_assign(&other.0[2], choice);
+        self.0[3].conditional_assign(&other.0[3], choice);
+        self.0[4].conditional_assign(&other.0[4], choice);
+    }
+
+    fn conditional_swap(a: &mut Point, b: &mut Point, choice: Choice) {
+        u64::conditional_swap(&mut a.0[0], &mut b.0[0], choice);
+        u64::conditional_swap(&mut a.0[1], &mut b.0[1], choice);
+        u64::conditional_swap(&mut a.0[2], &mut b.0[2], choice);
+        u64::conditional_swap(&mut a.0[3], &mut b.0[3], choice);
+        u64::conditional_swap(&mut a.0[4], &mut b.0[4], choice);
+    }
+}
+
+const SQRT_M1: Point = Point([
+    1718705420411056,
+    234908883556509,
+    2233514472574048,
+    2117202627021982,
+    765476049583133,
+]);
+
+const MONTGOMERY_A: Point = Point([486662, 0, 0, 0, 0]);
+
+const MONTGOMERY_A_NEG: Point = Point([
+    2251799813198567,
+    2251799813685247,
+    2251799813685247,
+    2251799813685247,
+    2251799813685247,
+]);
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use rand::{thread_rng, Rng};
+
+    use crate::Scalar;
+
+    use super::*;
+
+    #[test]
+    fn elligator_round_trip() {
+        let mut hits = 0;
+        for _ in 0..100 {
+            let d = Scalar::reduce(&thread_rng().gen());
+            let q = &G * &d;
+            if let Some(rep) = q.to_elligator(Choice::from(thread_rng().gen::<u8>() % 2)) {
+                let q_p = Point::from_elligator(&rep);
+                assert!(q == q_p);
+            }
+            hits += 1;
+        }
+        assert!(hits > 1);
+    }
+}
