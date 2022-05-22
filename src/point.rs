@@ -173,8 +173,28 @@ impl Point {
     }
 
     fn is_negative(&self) -> Choice {
-        let bytes = self.as_bytes();
-        (bytes[0] & 1).into()
+        // inline the required parts of fiat_25519_to_bytes to determine if the LSB is zero
+        let mut x1: u64 = 0;
+        let mut x2: fiat_25519_u1 = 0;
+        fiat_25519_subborrowx_u51(&mut x1, &mut x2, 0x0, self.0[0], 0x7ffffffffffed);
+        let mut x3: u64 = 0;
+        let mut x4: fiat_25519_u1 = 0;
+        fiat_25519_subborrowx_u51(&mut x3, &mut x4, x2, self.0[1], 0x7ffffffffffff);
+        let mut x5: u64 = 0;
+        let mut x6: fiat_25519_u1 = 0;
+        fiat_25519_subborrowx_u51(&mut x5, &mut x6, x4, self.0[2], 0x7ffffffffffff);
+        let mut x7: u64 = 0;
+        let mut x8: fiat_25519_u1 = 0;
+        fiat_25519_subborrowx_u51(&mut x7, &mut x8, x6, self.0[3], 0x7ffffffffffff);
+        let mut x9: u64 = 0;
+        let mut x10: fiat_25519_u1 = 0;
+        fiat_25519_subborrowx_u51(&mut x9, &mut x10, x8, self.0[4], 0x7ffffffffffff);
+        let mut x11: u64 = 0;
+        fiat_25519_cmovznz_u64(&mut x11, x10, 0x0, 0xffffffffffffffff);
+        let mut x12: u64 = 0;
+        let mut x13: fiat_25519_u1 = 0;
+        fiat_25519_addcarryx_u51(&mut x12, &mut x13, 0x0, x1, x11 & 0x7ffffffffffed);
+        (((x12 & 0xff) as u8) & 1).into()
     }
 
     fn pow2k(&self, k: u32) -> Point {
