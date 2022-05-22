@@ -83,23 +83,16 @@ fn check(bzz: &Point, bxz: &Point, bxx: &Point, rx: &Point) -> bool {
  */
 fn b_values(xp: &Point, xq: &Point) -> (Point, Point, Point) {
     let b0 = xp * xq;
-    let b1 = &Point::one() * &Point::one();
-    let bzz = (&b0 - &b1).square();
-    let b0 = &b0 + &b1;
+    let bzz = (&b0 - &Point::one()).square();
 
-    let b1 = xp * &Point::one();
-    let b2 = xq * &Point::one();
-    let bxx = (&b1 - &b2).square();
+    let bxx = (xp - xq).square();
 
-    let bxz = &b1 + &b2;
-    let bxz = &bxz * &b0;
-    let b0 = &b1 * &b2;
+    let bxz = xp + xq;
+    let bxz = &bxz * &(&b0 + &Point::one());
+    let b0 = xp * xq;
     let b0 = &b0 + &b0;
     let b0 = &b0 + &b0;
-    let b1 = &b0 + &b0;
-    let b1 = b1.mul121666();
-    let b0 = &b1 - &b0;
-    let bxz = &bxz + &b0;
+    let bxz = &bxz + &(&(&b0 + &b0).mul121666() - &b0);
     let bxz = &bxz + &bxz;
 
     (bzz, bxz, bxx)
