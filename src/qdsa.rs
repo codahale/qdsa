@@ -8,19 +8,16 @@ pub fn sign(
     sk: &[u8; 32],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
-    let r = hash(&[nonce, m]);
-    let r = Scalar::wide_reduce(&r);
-    let rx = (&G * &r).as_bytes();
+    let d = Scalar::clamp(sk);
 
-    let h = Scalar::wide_reduce(&hash(&[&rx, pk, m]));
-    let h = h.abs();
-    let s = Scalar::clamp(sk);
-    let s = &h * &s;
-    let s = &r - &s;
-    let s = s.abs();
+    let k = Scalar::wide_reduce(&hash(&[nonce, m]));
+    let i = (&G * &k).as_bytes();
+
+    let r = Scalar::wide_reduce(&hash(&[&i, pk, m])).abs();
+    let s = (&k - &(&r * &d)).abs();
 
     let mut sig = [0u8; 64];
-    sig[..32].copy_from_slice(&rx);
+    sig[..32].copy_from_slice(&i);
     sig[32..].copy_from_slice(&s.as_bytes());
     sig
 }
@@ -31,64 +28,44 @@ pub fn verify(
     pk: &[u8; 32],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> bool {
-    let rx = Point::from_bytes(&sig[..32].try_into().unwrap());
+    let q = Point::from_bytes(pk);
+
+    let i = Point::from_bytes(&sig[..32].try_into().unwrap());
     let s = Scalar::reduce(&sig[32..].try_into().unwrap());
     if !s.is_pos() {
         return false;
     }
 
-    let h = Scalar::wide_reduce(&hash(&[&sig[..32], pk, m]));
+    let r = Scalar::wide_reduce(&hash(&[&sig[..32], pk, m]));
 
-    let pkx = Point::from_bytes(pk);
-    let h_q = &pkx * &h;
-    let s_p = &G * &s;
+    let t0 = &G * &s;
+    let t1 = &q * &r;
 
-    let (bzz, bxz, bxx) = b_values(&s_p, &h_q);
-    check(&bzz, &bxz, &bxx, &rx)
+    let (bzz, bxz, bxx) = b_values(&t0, &t1);
+    check(&bzz, &bxz, &bxx, &i)
 }
 
-// Verify whether B_XXrx^2 - B_XZrx + B_ZZ = 0
-//
-// Input:
-//      bZZ: Biquadratic form B_ZZ
-//      bXZ: Biquadratic form B_XZ
-//      bXX: Biquadratic form B_XX
-//      rx: affine x-coordinate on Montgomery curve
-//
-// Output:
-//      true  if B_XXrx^2 - B_XZrx + B_ZZ = 0,
-//      false otherwise
+// Return `true` iff `B_XX(i)^2 - B_XZ(i) + B_ZZ = 0`.
 #[must_use]
-fn check(bzz: &Point, bxz: &Point, bxx: &Point, rx: &Point) -> bool {
-    (&(&(bxx * &rx.square()) - &(bxz * rx)) + bzz).is_zero()
+fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> bool {
+    (&(&(bxx * &i.square()) - &(bxz * i)) + bzz).is_zero()
 }
 
-/*
- * Three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of xp and xq
- *
- * Input:
- *      xp: proj. x-coordinate on Montgomery curve
- *      xq: proj. x-coordinate on Montgomery curve
- *
- * Output:
- *      bZZ: Element B_ZZ of fe25519
- *      bXZ: Element B_XZ of fe25519
- *      bXX: Element B_XX of fe25519
- */
-fn b_values(xp: &Point, xq: &Point) -> (Point, Point, Point) {
-    let b0 = xp * xq;
+// Return the three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of t0 and t1.
+fn b_values(t0: &Point, t1: &Point) -> (Point, Point, Point) {
+    let b0 = t0 * t1;
     let bzz = (&b0 - &Point::one()).square();
 
-    let bxz = xp + xq;
+    let bxz = t0 + t1;
     let bxz = &bxz * &(&b0 + &Point::one());
-    let b0 = xp * xq;
+    let b0 = t0 * t1;
     let b0 = &b0 + &b0;
     let b0 = &b0 + &b0;
     let b1 = &b0 + &b0;
     let bxz = &bxz + &(&b1.mul121666() - &b0);
     let bxz = &bxz + &bxz;
 
-    let bxx = (xp - xq).square();
+    let bxx = (t0 - t1).square();
 
     (bzz, bxz, bxx)
 }
