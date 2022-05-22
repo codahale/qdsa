@@ -5,31 +5,17 @@ use subtle::ConstantTimeEq;
 
 use crate::Scalar;
 
+/// The generator point for Curve25519.
 pub const G: Point = Point([9, 0, 0, 0, 0]);
 
+/// A point on Curve25519. (Technically, only the `x` coordinate of the affine representation.)
 #[derive(Copy, Clone, Default)]
 pub struct Point(pub(crate) [u64; 5]);
 
 impl Point {
-    #[inline]
-    pub fn swap(&mut self, b: &mut Point, swap: u8) {
-        // SAFETY: This is a part of fiat input bounds.
-        assert!(swap == 1 || swap == 0);
-
-        let tmp_x = *self;
-        let tmp_y = *b;
-
-        fiat_25519_selectznz(&mut self.0, swap, &tmp_x.0, &tmp_y.0);
-        fiat_25519_selectznz(&mut b.0, swap, &tmp_y.0, &tmp_x.0);
-    }
-
-    #[inline]
-    pub fn freeze(&self) -> Point {
-        let mut ret = Point::default();
-        fiat_25519_carry(&mut ret.0, &self.0);
-        ret
-    }
-
+    /// Parses the given byte array as a [Point].
+    ///
+    /// All possible byte arrays are valid points.
     #[inline]
     pub fn from_bytes(x: &[u8; 32]) -> Point {
         let mut ret = Point::default();
@@ -39,6 +25,7 @@ impl Point {
         ret.freeze()
     }
 
+    /// Returns the point as a byte array.
     #[inline]
     pub fn as_bytes(&self) -> [u8; 32] {
         let mut ret = Default::default();
@@ -46,19 +33,19 @@ impl Point {
         ret
     }
 
-    pub const fn one() -> Point {
-        Point([1, 0, 0, 0, 0])
-    }
+    /// The identity point of Curve25519.
+    pub const ZERO: Point = Point([0, 0, 0, 0, 0]);
 
-    pub const fn zero() -> Point {
-        Point([0, 0, 0, 0, 0])
-    }
+    /// The `1` value of Curve25519.
+    pub const ONE: Point = Point([1, 0, 0, 0, 0]);
 
+    /// Returns `true` iff the point is equal to zero.
     #[inline]
     pub fn is_zero(&self) -> bool {
         self.as_bytes().ct_eq(&[0u8; 32]).into()
     }
 
+    /// Returns `self * 12166 mod m`.
     #[inline]
     pub fn mul121666(&self) -> Point {
         let mut ret = Point::default();
@@ -66,6 +53,7 @@ impl Point {
         ret
     }
 
+    /// Returns `self * self`.
     #[inline]
     pub fn square(&self) -> Point {
         let mut ret = Point::default();
@@ -73,6 +61,7 @@ impl Point {
         ret
     }
 
+    /// Returns the multiplicative inverse of the point.
     pub fn invert(&self) -> Point {
         /* 2 */
         let z2 = self.square();
@@ -187,6 +176,25 @@ impl Point {
         /* 2^255 - 21 */
         &t1 * &z11
     }
+
+    #[inline]
+    fn swap(&mut self, b: &mut Point, swap: u8) {
+        // SAFETY: This is a part of fiat input bounds.
+        assert!(swap == 1 || swap == 0);
+
+        let tmp_x = *self;
+        let tmp_y = *b;
+
+        fiat_25519_selectznz(&mut self.0, swap, &tmp_x.0, &tmp_y.0);
+        fiat_25519_selectznz(&mut b.0, swap, &tmp_y.0, &tmp_x.0);
+    }
+
+    #[inline]
+    fn freeze(&self) -> Point {
+        let mut ret = Point::default();
+        fiat_25519_carry(&mut ret.0, &self.0);
+        ret
+    }
 }
 
 impl Add for &Point {
@@ -225,13 +233,13 @@ impl Mul for &Point {
 impl Mul<&Scalar> for &Point {
     type Output = Point;
 
-    // Montgomery ladder computing n*xp via repeated differential additions and constant-time
+    // Montgomery ladder computing q*d via repeated differential additions and constant-time
     // conditional swaps.
     fn mul(self, rhs: &Scalar) -> Self::Output {
-        let mut x2 = Point::one();
+        let mut x2 = Point::ONE;
         let mut x3 = *self;
-        let mut z3 = Point::one();
-        let mut z2 = Point::zero();
+        let mut z3 = Point::ONE;
+        let mut z2 = Point::ZERO;
         let mut tmp0: Point;
         let mut tmp1: Point;
         let mut swap_bit: u8 = 0;
