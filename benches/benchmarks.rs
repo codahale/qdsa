@@ -6,7 +6,8 @@ use sha3::{
 };
 use subtle::Choice;
 
-use qdsa::{public_key, sign, verify, x25519, Point, Scalar, G};
+use qdsa::hazmat::{Point, Scalar, G};
+use qdsa::{public_key, sign, verify, x25519};
 
 fn keygen_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("keygen");
