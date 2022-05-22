@@ -4,9 +4,9 @@ use crate::scalar::Scalar;
 /// Given a public key `pk` and secret key `sk`, returns the X25519 shared secret.
 #[must_use]
 pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
-    let rx = Point::from_bytes(pk);
+    let q = Point::from_bytes(pk);
     let d = Scalar::clamp(sk);
-    (&rx * &d).as_bytes()
+    (&q * &d).as_bytes()
 }
 
 #[cfg(test)]
