@@ -60,17 +60,11 @@ pub fn verify(
 //      false otherwise
 #[must_use]
 fn check(bzz: &Point, bxz: &Point, bxx: &Point, rx: &Point) -> bool {
-    let b0 = rx.square();
-    let b0 = &b0 * bxx;
-    let b1 = rx * bxz;
-    let b0 = &b0 - &b1;
-    let b0 = &b0 + bzz;
-    b0.is_zero()
+    (&(&(bxx * &rx.square()) - &(bxz * rx)) + bzz).is_zero()
 }
 
 /*
- * Three biquadratic forms B_XX, B_XZ and B_ZZ
- * in the coordinates of xp and xq
+ * Three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of xp and xq
  *
  * Input:
  *      xp: proj. x-coordinate on Montgomery curve
@@ -85,15 +79,16 @@ fn b_values(xp: &Point, xq: &Point) -> (Point, Point, Point) {
     let b0 = xp * xq;
     let bzz = (&b0 - &Point::one()).square();
 
-    let bxx = (xp - xq).square();
-
     let bxz = xp + xq;
     let bxz = &bxz * &(&b0 + &Point::one());
     let b0 = xp * xq;
     let b0 = &b0 + &b0;
     let b0 = &b0 + &b0;
-    let bxz = &bxz + &(&(&b0 + &b0).mul121666() - &b0);
+    let b1 = &b0 + &b0;
+    let bxz = &bxz + &(&b1.mul121666() - &b0);
     let bxz = &bxz + &bxz;
+
+    let bxx = (xp - xq).square();
 
     (bzz, bxz, bxx)
 }
