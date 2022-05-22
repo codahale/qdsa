@@ -1,6 +1,11 @@
-use fiat_crypto::curve25519_64::*;
 use std::ops::{Add, Mul, Sub};
+
+use fiat_crypto::curve25519_64::*;
 use subtle::ConstantTimeEq;
+
+use crate::Scalar;
+
+pub const G: Fe25519 = Fe25519([9, 0, 0, 0, 0]);
 
 #[derive(Copy, Clone, Default)]
 pub struct Fe25519(pub(crate) [u64; 5]);
@@ -215,6 +220,56 @@ impl Mul for &Fe25519 {
         let mut ret = Fe25519::default();
         fiat_25519_carry_mul(&mut ret.0, &self.0, &rhs.0);
         ret.freeze()
+    }
+}
+
+impl Mul<&Scalar> for &Fe25519 {
+    type Output = Fe25519;
+
+    // Montgomery ladder computing n*xp via repeated differential additions and constant-time
+    // conditional swaps.
+    fn mul(self, rhs: &Scalar) -> Self::Output {
+        let mut x2 = Fe25519::one();
+        let mut x3 = *self;
+        let mut z3 = Fe25519::one();
+        let mut z2 = Fe25519::zero();
+        let mut tmp0: Fe25519;
+        let mut tmp1: Fe25519;
+        let mut swap_bit: u8 = 0;
+
+        for idx in (0..=254).rev() {
+            let bit = ((rhs.0[idx >> 3] >> (idx & 7)) & 1) as u8;
+            swap_bit ^= bit;
+            x2.swap(&mut x3, swap_bit);
+            z2.swap(&mut z3, swap_bit);
+            swap_bit = bit;
+
+            tmp0 = &x3 - &z3;
+            tmp1 = &x2 - &z2;
+            x2 = &x2 + &z2;
+            z2 = &x3 + &z3;
+            z3 = &tmp0 * &x2;
+            z2 = &z2 * &tmp1;
+            tmp0 = tmp1.square();
+            tmp1 = x2.square();
+            x3 = &z3 + &z2;
+            z2 = &z3 - &z2;
+            x2 = &tmp1 * &tmp0;
+            tmp1 = &tmp1 - &tmp0;
+            z2 = z2.square();
+            z3 = tmp1.mul121666();
+            x3 = x3.square();
+            tmp0 = &tmp0 + &z3;
+            z3 = self * &z2;
+            z2 = &tmp1 * &tmp0;
+        }
+
+        x2.swap(&mut x3, swap_bit);
+        z2.swap(&mut z3, swap_bit);
+
+        z2 = z2.invert();
+        x2 = &x2 * &z2;
+        x2.freeze()
     }
 }
 

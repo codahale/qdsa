@@ -1,5 +1,4 @@
-use crate::fe25519::Fe25519;
-use crate::point;
+use crate::fe25519::{Fe25519, G};
 use crate::scalar::Scalar;
 
 pub fn sign(
@@ -11,7 +10,7 @@ pub fn sign(
 ) -> [u8; 64] {
     let r = hash(&[nonce, m]);
     let r = Scalar::wide_reduce(&r);
-    let rx = point::ladder_base(&r).as_bytes();
+    let rx = (&G * &r).as_bytes();
 
     let h = Scalar::wide_reduce(&hash(&[&rx, pk, m]));
     let h = h.abs();
@@ -41,8 +40,8 @@ pub fn verify(
     let h = Scalar::wide_reduce(&hash(&[&sig[..32], pk, m]));
 
     let pkx = Fe25519::from_bytes(pk);
-    let h_q = point::ladder(&pkx, &h);
-    let s_p = point::ladder_base(&s);
+    let h_q = &pkx * &h;
+    let s_p = &G * &s;
 
     let (bzz, bxz, bxx) = b_values(&s_p, &h_q);
     check(&bzz, &bxz, &bxx, &rx)

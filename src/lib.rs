@@ -4,12 +4,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 
+use crate::fe25519::G;
 pub use crate::qdsa::{sign, verify};
 use crate::scalar::Scalar;
 pub use crate::x25519::x25519;
 
 mod fe25519;
-mod point;
 mod qdsa;
 mod scalar;
 mod x25519;
@@ -17,6 +17,6 @@ mod x25519;
 /// Given a secret key `sk`, returns the corresponding public key.
 pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
     let d = Scalar::clamp(sk);
-    let q = point::ladder_base(&d);
+    let q = &G * &d;
     q.as_bytes()
 }
