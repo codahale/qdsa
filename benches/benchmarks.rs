@@ -11,6 +11,7 @@ use qdsa::{public_key, sign, verify, x25519};
 
 fn keygen_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("keygen");
+    g.confidence_level(0.99).significance_level(0.01);
 
     g.bench_function("x25519-qdsa", |b| b.iter(|| public_key(&[22u8; 32])));
 
@@ -28,6 +29,7 @@ fn keygen_benchmarks(c: &mut Criterion) {
 
 fn ecdh_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("ecdh");
+    g.confidence_level(0.99).significance_level(0.01);
 
     g.bench_function("x25519-qdsa", |b| {
         let sk_a = thread_rng().gen();
@@ -49,6 +51,7 @@ fn ecdh_benchmarks(c: &mut Criterion) {
 
 fn sign_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("sign");
+    g.confidence_level(0.99).significance_level(0.01);
 
     g.bench_function("qdsa", |b| {
         let sk = thread_rng().gen();
@@ -64,6 +67,7 @@ fn sign_benchmarks(c: &mut Criterion) {
 
 fn verify_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("verify");
+    g.confidence_level(0.99).significance_level(0.01);
 
     g.bench_function("qdsa", |b| {
         let sk = thread_rng().gen();
@@ -80,6 +84,7 @@ fn verify_benchmarks(c: &mut Criterion) {
 
 fn elligator_benchmarks(c: &mut Criterion) {
     let mut g = c.benchmark_group("elligator");
+    g.confidence_level(0.99).significance_level(0.01);
 
     fn generate_key() -> (Point, [u8; 32]) {
         loop {
