@@ -172,6 +172,7 @@ impl Point {
         (was_nonzero_square, r)
     }
 
+    #[inline]
     fn is_negative(&self) -> Choice {
         // inline the required parts of fiat_25519_to_bytes to determine if the LSB is zero
         let mut x1: u64 = 0;
@@ -197,6 +198,7 @@ impl Point {
         (((x12 & 0xff) as u8) & 1).into()
     }
 
+    #[inline]
     fn pow2k(&self, k: u32) -> Point {
         debug_assert!(k > 0);
         let mut output = *self;
@@ -207,6 +209,7 @@ impl Point {
         output
     }
 
+    #[inline]
     fn pow22501(&self) -> (Point, Point) {
         let t0 = self.square(); // 1         e_0 = 2^1
         let t1 = t0.square().square(); // 3         e_1 = 2^3
@@ -233,6 +236,7 @@ impl Point {
     }
 
     /// Raise this field element to the power (p-5)/8 = 2^252 -3.
+    #[inline]
     fn pow_p58(&self) -> Point {
         // The bits of (p-5)/8 are 101111.....11.
         //
