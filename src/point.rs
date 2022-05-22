@@ -2,6 +2,7 @@ use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
 use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
+use zeroize::Zeroize;
 
 use crate::Scalar;
 
@@ -375,6 +376,12 @@ impl ConditionallySelectable for Point {
         u64::conditional_swap(&mut a.0[2], &mut b.0[2], choice);
         u64::conditional_swap(&mut a.0[3], &mut b.0[3], choice);
         u64::conditional_swap(&mut a.0[4], &mut b.0[4], choice);
+    }
+}
+
+impl Zeroize for Point {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
     }
 }
 

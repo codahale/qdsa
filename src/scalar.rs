@@ -1,5 +1,7 @@
 use std::ops::{Add, Mul, Neg, Sub};
 
+use zeroize::Zeroize;
+
 /// A scalar value of Curve25519.
 #[derive(Copy, Clone, Default)]
 pub struct Scalar(pub(crate) [u16; 32]);
@@ -136,6 +138,12 @@ impl Mul for &Scalar {
         }
 
         barrett_reduce(&t)
+    }
+}
+
+impl Zeroize for Scalar {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
     }
 }
 
