@@ -22,7 +22,7 @@ impl Point {
         let mut x = *x;
         x[31] &= 127;
         fiat_25519_from_bytes(&mut ret.0, &x);
-        ret.freeze()
+        ret.reduce()
     }
 
     /// Returns the point as a byte array.
@@ -190,7 +190,7 @@ impl Point {
     }
 
     #[inline]
-    fn freeze(&self) -> Point {
+    fn reduce(&self) -> Point {
         let mut ret = Point::default();
         fiat_25519_carry(&mut ret.0, &self.0);
         ret
@@ -204,7 +204,7 @@ impl Add for &Point {
     fn add(self, rhs: Self) -> Self::Output {
         let mut ret = Point::default();
         fiat_25519_add(&mut ret.0, &self.0, &rhs.0);
-        ret.freeze()
+        ret.reduce()
     }
 }
 
@@ -215,7 +215,7 @@ impl Sub for &Point {
     fn sub(self, rhs: Self) -> Self::Output {
         let mut ret = Point::default();
         fiat_25519_sub(&mut ret.0, &self.0, &rhs.0);
-        ret.freeze()
+        ret.reduce()
     }
 }
 
