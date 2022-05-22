@@ -1,11 +1,12 @@
 use crate::point::{Point, G};
 use crate::scalar::Scalar;
 
+/// Signs the message using the given key pair, nonce, and hash function.
 pub fn sign(
-    m: &[u8],
     pk: &[u8; 32],
-    nonce: &[u8; 32],
     sk: &[u8; 32],
+    nonce: &[u8; 32],
+    m: &[u8],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
     let d = Scalar::clamp(sk);
@@ -22,10 +23,11 @@ pub fn sign(
     sig
 }
 
+/// Verifies the signature given the public key and message.
 pub fn verify(
-    m: &[u8],
-    sig: &[u8; 64],
     pk: &[u8; 32],
+    sig: &[u8; 64],
+    m: &[u8],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> bool {
     let q = Point::from_bytes(pk);
@@ -36,13 +38,23 @@ pub fn verify(
         return false;
     }
 
-    let r = Scalar::wide_reduce(&hash(&[&sig[..32], pk, m]));
+    let r_p = Scalar::wide_reduce(&hash(&[&sig[..32], pk, m]));
 
-    let t0 = &G * &s;
-    let t1 = &q * &r;
+    verify_detached(&q, &r_p, &i, &s)
+}
+
+/// Verifies the detached components of a signature:
+///
+/// * `q`: the signer's public key
+/// * `r_p`: the re-calculated challenge scalar `H(i || q || m)`
+/// * `i`: the commitment point from the signature
+/// * `s`: the proof scalar from the signature
+pub fn verify_detached(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool {
+    let t0 = &G * s;
+    let t1 = q * r_p;
 
     let (bzz, bxz, bxx) = b_values(&t0, &t1);
-    check(&bzz, &bxz, &bxx, &i)
+    check(&bzz, &bxz, &bxx, i)
 }
 
 // Return `true` iff `B_XX(i)^2 - B_XZ(i) + B_ZZ = 0`.
@@ -54,10 +66,10 @@ fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> bool {
 // Return the three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of t0 and t1.
 fn b_values(t0: &Point, t1: &Point) -> (Point, Point, Point) {
     let b0 = t0 * t1;
-    let bzz = (&b0 - &Point::one()).square();
+    let bzz = (&b0 - &Point::ONE).square();
 
     let bxz = t0 + t1;
-    let bxz = &bxz * &(&b0 + &Point::one());
+    let bxz = &bxz * &(&b0 + &Point::ONE);
     let b0 = t0 * t1;
     let b0 = &b0 + &b0;
     let b0 = &b0 + &b0;
@@ -102,7 +114,7 @@ mod tests {
         let sk = hex!("a012a86000174e1c3ff635307874bfbc9ae67371f78186ceb58b7df68d4bd25e");
         let m = hex!("4f2b8a8027a8542bda6f");
         let sig = hex!("8137f6865c2a5c74feb9f5a64ae06601ed0878d9bf6be8b8297221034e7bba645a04f337ea101a11352ebb4c377e436b9502520a5e8056f5443ab15d2c25d10b");
-        let sig_a = sign(&m, &pk, &nonce, &sk, shake128);
+        let sig_a = sign(&pk, &sk, &nonce, &m, shake128);
         assert_eq!(sig, sig_a);
     }
 
@@ -116,19 +128,19 @@ mod tests {
 
             let message = b"this is a message";
 
-            let sig = sign(message, &pk_a, &nonce, &sk_a, shake128);
+            let sig = sign(&pk_a, &sk_a, &nonce, message, shake128);
             let mut sig_p = sig;
             sig_p[4] ^= 1;
 
-            assert!(verify(message, &sig, &pk_a, shake128));
-            assert!(!verify(message, &sig, &pk_b, shake128));
+            assert!(verify(&pk_a, &sig, message, shake128));
+            assert!(!verify(&pk_b, &sig, message, shake128));
             assert!(!verify(
-                b"this is a different message",
-                &sig,
                 &pk_a,
+                &sig,
+                b"this is a different message",
                 shake128
             ));
-            assert!(!verify(message, &sig_p, &pk_a, shake128));
+            assert!(!verify(&pk_a, &sig_p, message, shake128));
         }
     }
 }

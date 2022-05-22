@@ -5,7 +5,7 @@
 #![forbid(unsafe_code)]
 
 pub use crate::point::{Point, G};
-pub use crate::qdsa::{sign, verify};
+pub use crate::qdsa::{sign, verify, verify_detached};
 pub use crate::scalar::Scalar;
 pub use crate::x25519::x25519;
 

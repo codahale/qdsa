@@ -54,7 +54,7 @@ fn sign_benchmarks(c: &mut Criterion) {
         let nonce = rand::thread_rng().gen();
         let message = b"this is a short message";
 
-        b.iter(|| sign(message, &pk, &nonce, &sk, shake128))
+        b.iter(|| sign(&pk, &sk, &nonce, message, shake128))
     });
 
     g.finish();
@@ -68,9 +68,9 @@ fn verify_benchmarks(c: &mut Criterion) {
         let pk = public_key(&sk);
         let nonce = rand::thread_rng().gen();
         let message = b"this is a short message";
-        let sig = sign(message, &pk, &nonce, &sk, shake128);
+        let sig = sign(&pk, &sk, &nonce, message, shake128);
 
-        b.iter(|| verify(message, &sig, &pk, shake128))
+        b.iter(|| verify(&pk, &sig, message, shake128))
     });
 
     g.finish();
