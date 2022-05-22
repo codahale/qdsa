@@ -5,14 +5,14 @@ use subtle::ConstantTimeEq;
 
 use crate::Scalar;
 
-pub const G: Fe25519 = Fe25519([9, 0, 0, 0, 0]);
+pub const G: Point = Point([9, 0, 0, 0, 0]);
 
 #[derive(Copy, Clone, Default)]
-pub struct Fe25519(pub(crate) [u64; 5]);
+pub struct Point(pub(crate) [u64; 5]);
 
-impl Fe25519 {
+impl Point {
     #[inline]
-    pub fn swap(&mut self, b: &mut Fe25519, swap: u8) {
+    pub fn swap(&mut self, b: &mut Point, swap: u8) {
         // SAFETY: This is a part of fiat input bounds.
         assert!(swap == 1 || swap == 0);
 
@@ -24,15 +24,15 @@ impl Fe25519 {
     }
 
     #[inline]
-    pub fn freeze(&self) -> Fe25519 {
-        let mut ret = Fe25519::default();
+    pub fn freeze(&self) -> Point {
+        let mut ret = Point::default();
         fiat_25519_carry(&mut ret.0, &self.0);
         ret
     }
 
     #[inline]
-    pub fn from_bytes(x: &[u8; 32]) -> Fe25519 {
-        let mut ret = Fe25519::default();
+    pub fn from_bytes(x: &[u8; 32]) -> Point {
+        let mut ret = Point::default();
         let mut x = *x;
         x[31] &= 127;
         fiat_25519_from_bytes(&mut ret.0, &x);
@@ -46,12 +46,12 @@ impl Fe25519 {
         ret
     }
 
-    pub const fn one() -> Fe25519 {
-        Fe25519([1, 0, 0, 0, 0])
+    pub const fn one() -> Point {
+        Point([1, 0, 0, 0, 0])
     }
 
-    pub const fn zero() -> Fe25519 {
-        Fe25519([0, 0, 0, 0, 0])
+    pub const fn zero() -> Point {
+        Point([0, 0, 0, 0, 0])
     }
 
     #[inline]
@@ -60,20 +60,20 @@ impl Fe25519 {
     }
 
     #[inline]
-    pub fn mul121666(&self) -> Fe25519 {
-        let mut ret = Fe25519::default();
+    pub fn mul121666(&self) -> Point {
+        let mut ret = Point::default();
         fiat_25519_carry_scmul_121666(&mut ret.0, &self.0);
         ret.freeze()
     }
 
     #[inline]
-    pub fn square(&self) -> Fe25519 {
-        let mut ret = Fe25519::default();
+    pub fn square(&self) -> Point {
+        let mut ret = Point::default();
         fiat_25519_carry_square(&mut ret.0, &self.0);
         ret.freeze()
     }
 
-    pub fn invert(&self) -> Fe25519 {
+    pub fn invert(&self) -> Point {
         /* 2 */
         let z2 = self.square();
         /* 4 */
@@ -190,51 +190,51 @@ impl Fe25519 {
     }
 }
 
-impl Add for &Fe25519 {
-    type Output = Fe25519;
+impl Add for &Point {
+    type Output = Point;
 
     #[inline]
     fn add(self, rhs: Self) -> Self::Output {
-        let mut ret = Fe25519::default();
+        let mut ret = Point::default();
         fiat_25519_add(&mut ret.0, &self.0, &rhs.0);
         ret.freeze()
     }
 }
 
-impl Sub for &Fe25519 {
-    type Output = Fe25519;
+impl Sub for &Point {
+    type Output = Point;
 
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
-        let mut ret = Fe25519::default();
+        let mut ret = Point::default();
         fiat_25519_sub(&mut ret.0, &self.0, &rhs.0);
         ret.freeze()
     }
 }
 
-impl Mul for &Fe25519 {
-    type Output = Fe25519;
+impl Mul for &Point {
+    type Output = Point;
 
     #[inline]
     fn mul(self, rhs: Self) -> Self::Output {
-        let mut ret = Fe25519::default();
+        let mut ret = Point::default();
         fiat_25519_carry_mul(&mut ret.0, &self.0, &rhs.0);
         ret.freeze()
     }
 }
 
-impl Mul<&Scalar> for &Fe25519 {
-    type Output = Fe25519;
+impl Mul<&Scalar> for &Point {
+    type Output = Point;
 
     // Montgomery ladder computing n*xp via repeated differential additions and constant-time
     // conditional swaps.
     fn mul(self, rhs: &Scalar) -> Self::Output {
-        let mut x2 = Fe25519::one();
+        let mut x2 = Point::one();
         let mut x3 = *self;
-        let mut z3 = Fe25519::one();
-        let mut z2 = Fe25519::zero();
-        let mut tmp0: Fe25519;
-        let mut tmp1: Fe25519;
+        let mut z3 = Point::one();
+        let mut z2 = Point::zero();
+        let mut tmp0: Point;
+        let mut tmp1: Point;
         let mut swap_bit: u8 = 0;
 
         for idx in (0..=254).rev() {

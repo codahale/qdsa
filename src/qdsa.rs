@@ -1,4 +1,4 @@
-use crate::fe25519::{Fe25519, G};
+use crate::fe25519::{Point, G};
 use crate::scalar::Scalar;
 
 pub fn sign(
@@ -31,7 +31,7 @@ pub fn verify(
     pk: &[u8; 32],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> bool {
-    let rx = Fe25519::from_bytes(&sig[..32].try_into().unwrap());
+    let rx = Point::from_bytes(&sig[..32].try_into().unwrap());
     let s = Scalar::reduce(&sig[32..].try_into().unwrap());
     if !s.is_pos() {
         return false;
@@ -39,7 +39,7 @@ pub fn verify(
 
     let h = Scalar::wide_reduce(&hash(&[&sig[..32], pk, m]));
 
-    let pkx = Fe25519::from_bytes(pk);
+    let pkx = Point::from_bytes(pk);
     let h_q = &pkx * &h;
     let s_p = &G * &s;
 
@@ -59,7 +59,7 @@ pub fn verify(
 //      true  if B_XXrx^2 - B_XZrx + B_ZZ = 0,
 //      false otherwise
 #[must_use]
-fn check(bzz: &Fe25519, bxz: &Fe25519, bxx: &Fe25519, rx: &Fe25519) -> bool {
+fn check(bzz: &Point, bxz: &Point, bxx: &Point, rx: &Point) -> bool {
     let b0 = rx.square();
     let b0 = &b0 * bxx;
     let b1 = rx * bxz;
@@ -81,14 +81,14 @@ fn check(bzz: &Fe25519, bxz: &Fe25519, bxx: &Fe25519, rx: &Fe25519) -> bool {
  *      bXZ: Element B_XZ of fe25519
  *      bXX: Element B_XX of fe25519
  */
-fn b_values(xp: &Fe25519, xq: &Fe25519) -> (Fe25519, Fe25519, Fe25519) {
+fn b_values(xp: &Point, xq: &Point) -> (Point, Point, Point) {
     let b0 = xp * xq;
-    let b1 = &Fe25519::one() * &Fe25519::one();
+    let b1 = &Point::one() * &Point::one();
     let bzz = (&b0 - &b1).square();
     let b0 = &b0 + &b1;
 
-    let b1 = xp * &Fe25519::one();
-    let b2 = xq * &Fe25519::one();
+    let b1 = xp * &Point::one();
+    let b2 = xq * &Point::one();
     let bxx = (&b1 - &b2).square();
 
     let bxz = &b1 + &b2;
