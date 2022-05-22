@@ -63,14 +63,14 @@ impl Point {
     pub fn mul121666(&self) -> Point {
         let mut ret = Point::default();
         fiat_25519_carry_scmul_121666(&mut ret.0, &self.0);
-        ret.freeze()
+        ret
     }
 
     #[inline]
     pub fn square(&self) -> Point {
         let mut ret = Point::default();
         fiat_25519_carry_square(&mut ret.0, &self.0);
-        ret.freeze()
+        ret
     }
 
     pub fn invert(&self) -> Point {
@@ -185,8 +185,7 @@ impl Point {
         /* 2^255 - 2^5 */
         let t1 = t0.square();
         /* 2^255 - 21 */
-        let ret = &t1 * &z11;
-        ret.freeze()
+        &t1 * &z11
     }
 }
 
@@ -219,7 +218,7 @@ impl Mul for &Point {
     fn mul(self, rhs: Self) -> Self::Output {
         let mut ret = Point::default();
         fiat_25519_carry_mul(&mut ret.0, &self.0, &rhs.0);
-        ret.freeze()
+        ret
     }
 }
 
@@ -268,8 +267,7 @@ impl Mul<&Scalar> for &Point {
         z2.swap(&mut z3, swap_bit);
 
         z2 = z2.invert();
-        x2 = &x2 * &z2;
-        x2.freeze()
+        &x2 * &z2
     }
 }
 
