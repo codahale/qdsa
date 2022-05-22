@@ -3,6 +3,7 @@
 //! instantiated with the Curve25519 elliptic curve, plus the X25519 key agreement algorithm.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
+#![warn(missing_docs)]
 
 pub use crate::point::{Point, G};
 pub use crate::qdsa::{sign, verify, verify_detached};
