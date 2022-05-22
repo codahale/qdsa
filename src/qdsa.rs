@@ -1,4 +1,4 @@
-use crate::fe25519::{Point, G};
+use crate::point::{Point, G};
 use crate::scalar::Scalar;
 
 pub fn sign(

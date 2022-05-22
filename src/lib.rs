@@ -4,12 +4,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 
-use crate::fe25519::G;
+use crate::point::G;
 pub use crate::qdsa::{sign, verify};
 use crate::scalar::Scalar;
 pub use crate::x25519::x25519;
 
-mod fe25519;
+mod point;
 mod qdsa;
 mod scalar;
 mod x25519;

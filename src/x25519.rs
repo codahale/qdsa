@@ -1,4 +1,4 @@
-use crate::fe25519::Point;
+use crate::point::Point;
 use crate::scalar::Scalar;
 
 /// Given a public key `pk` and secret key `sk`, returns the X25519 shared secret.
