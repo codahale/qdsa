@@ -1,6 +1,6 @@
-//! qdsa provides a small, portable implementation of the
-//! [qDSA](https://joostrenes.nl/publications/qdsa-eprint.pdf) digital signature algorithm
-//! instantiated with the Curve25519 elliptic curve, plus the X25519 key agreement algorithm.
+//! A pure-Rust implementation of [qDSA](https://joostrenes.nl/publications/qdsa-eprint.pdf) (aka
+//! Quotient DSA) over Curve25519. Includes X25519 key agreement, Elligator2 encoding and decoding,
+//! and a designated-verifier adaptation of qDSA.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -17,7 +17,9 @@ mod x25519;
 /// Cryptographic functionality which will let you do stupid things to yourself.
 pub mod hazmat {
     pub use crate::point::{Point, G};
-    pub use crate::qdsa::{sign_challenge, sign_commitment, verify_challenge};
+    pub use crate::qdsa::{
+        dv_sign_challenge, dv_verify_challenge, sign_challenge, sign_commitment, verify_challenge,
+    };
     pub use crate::scalar::Scalar;
 }
 
