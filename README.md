@@ -10,4 +10,4 @@ exception of making the hash function generic.
 
 Copyright © 2022 Coda Hale
 
-Distributed under the Apache License 2.0 or MIT License.
+Distributed under the MIT License.
