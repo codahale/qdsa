@@ -24,9 +24,11 @@ pub fn sign(
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
     let d = Scalar::clamp(sk);
-    let (k, i) = sign_commitment(hash(&[nonce, m]));
+    let k = Scalar::from_bytes_wide(&hash(&[nonce, m]));
+    let i = &G * &k;
     let i = i.as_bytes();
-    let s = sign_challenge(&d, &k, hash(&[&i, pk, m]));
+    let r = Scalar::from_bytes_wide(&hash(&[&i, pk, m]));
+    let s = sign_challenge(&d, &k, &r);
 
     let mut sig = [0u8; 64];
     sig[..32].copy_from_slice(&i);
@@ -49,21 +51,14 @@ pub fn verify(
     let q = Point::from_bytes(pk);
     let i = Point::from_bytes(&sig[..32].try_into().unwrap());
     let s = Scalar::from_bytes(&sig[32..].try_into().unwrap());
+    let r_p = Scalar::from_bytes_wide(&hash(&[&sig[..32], pk, m]));
 
-    verify_challenge(&q, hash(&[&sig[..32], pk, m]), &i, &s)
+    verify_challenge(&q, &r_p, &i, &s)
 }
 
-/// Given an ephemeral value (e.g. `H(nonce || d || m)`), returns the commitment scalar `k` and
-/// commitment point `i`.
-pub fn sign_commitment(ephemeral: [u8; 64]) -> (Scalar, Point) {
-    let k = Scalar::from_bytes_wide(&ephemeral);
-    (k, &G * &k)
-}
-
-/// Given the signer challenge (e.g. `H(I || Q || m)`), returns the proof scalar `s`.
-pub fn sign_challenge(d: &Scalar, k: &Scalar, challenge: [u8; 64]) -> Scalar {
-    let r = Scalar::from_bytes_wide(&challenge).abs();
-    (k - &(&r * d)).abs()
+/// Given the signer challenge `r` (e.g. `H(I || Q || m)`), returns the proof scalar `s`.
+pub fn sign_challenge(d: &Scalar, k: &Scalar, r: &Scalar) -> Scalar {
+    (k - &(r * d)).abs()
 }
 
 /// Given a challenge (e.g. `H(I || Q_S || m)`), returns the designated proof point `x` using the
@@ -74,27 +69,25 @@ pub fn sign_challenge(d: &Scalar, k: &Scalar, challenge: [u8; 64]) -> Scalar {
 /// designated verifier scheme for Schnorr signatures to Kummer varieties.
 ///
 /// Use [dv_verify_challenge] to verify `i` and `x`.
-pub fn dv_sign_challenge(d_s: &Scalar, k: &Scalar, q_v: &Point, challenge: [u8; 64]) -> Point {
-    let r = Scalar::from_bytes_wide(&challenge).abs();
-    q_v * &(k - &(&r * d_s)).abs()
+pub fn dv_sign_challenge(d_s: &Scalar, k: &Scalar, q_v: &Point, r: &Scalar) -> Point {
+    q_v * &(k - &(r * d_s)).abs()
 }
 
 /// Verifies a counterfactual challenge, given a commitment point and proof scalar.
 ///
 /// * `q`: the signer's public key
-/// * `challenge`: the re-calculated challenge e.g. `H(I || Q || m)`
+/// * `r_p`: the re-calculated challenge e.g. `r' = H(I' || Q' || m')`
 /// * `i`: the commitment point from the signature
 /// * `s`: the proof scalar from the signature
-pub fn verify_challenge(q: &Point, challenge: [u8; 64], i: &Point, s: &Scalar) -> bool {
+pub fn verify_challenge(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool {
     // Disallow negative proof scalars. We never produce negative proof scalars, and allowing
     // negative values here allows for malleable signatures.
     if !s.is_pos() {
         return false;
     }
 
-    let r = Scalar::from_bytes_wide(&challenge);
     let t0 = &G * s; // t0 = [s]G = [k - rd]G
-    let t1 = q * &r; // t1 = [r]Q = [rd]G
+    let t1 = q * r_p; // t1 = [r]Q = [rd]G
 
     // return true iff ±[k]G ∈ {±([k - rd]G + [rd]G), ±([k - rd]G - [rd]G)}
     let (bzz, bxz, bxx) = b_values(&t0, &t1);
@@ -108,16 +101,9 @@ pub fn verify_challenge(q: &Point, challenge: [u8; 64], i: &Point, s: &Scalar) -
 /// * `challenge`: the re-calculated challenge e.g. `H(I || Q_S || m)`
 /// * `i`: the commitment point from the signature
 /// * `x`: the designatued proof point from the signature
-pub fn dv_verify_challenge(
-    q_s: &Point,
-    d_v: &Scalar,
-    challenge: [u8; 64],
-    i: &Point,
-    x: &Point,
-) -> bool {
-    let r = Scalar::from_bytes_wide(&challenge);
+pub fn dv_verify_challenge(q_s: &Point, d_v: &Scalar, r_p: &Scalar, i: &Point, x: &Point) -> bool {
     let t0 = x * &d_v.invert(); // t0 = [1/d_V]X = [((k - rd_S)d_V)(1/d_V)]G
-    let t1 = q_s * &r; // t1 = [r]Q = [rd_S]G
+    let t1 = q_s * r_p; // t1 = [r]Q = [rd_S]G
 
     // return true iff ±[k]G ∈ {±([k - rd_S]G + [rd_S]G), ±([k - rd_S]G - [rd_S]G)}
     let (bzz, bxz, bxx) = b_values(&t0, &t1);
@@ -227,16 +213,15 @@ mod tests {
         let (i, x) = {
             // Generate a standard commitment.
             let nonce = thread_rng().gen::<[u8; 32]>();
-            let ephemeral = shake128(&[&nonce, &d_s.as_bytes(), message]);
-
-            let (k, i) = sign_commitment(ephemeral);
-            let challenge = shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]);
-            let x = dv_sign_challenge(&d_s, &k, &q_v, challenge);
+            let k = Scalar::from_bytes_wide(&shake128(&[&nonce, &d_s.as_bytes(), message]));
+            let i = &G * &k;
+            let r = Scalar::from_bytes_wide(&shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]));
+            let x = dv_sign_challenge(&d_s, &k, &q_v, &r);
             (i, x)
         };
 
         // Re-create the challenge using the commitment point.
-        let challenge = shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]);
-        assert!(dv_verify_challenge(&q_s, &d_v, challenge, &i, &x));
+        let r_p = Scalar::from_bytes_wide(&shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]));
+        assert!(dv_verify_challenge(&q_s, &d_v, &r_p, &i, &x));
     }
 }

@@ -18,7 +18,7 @@ mod x25519;
 pub mod hazmat {
     pub use crate::point::{Point, G};
     pub use crate::qdsa::{
-        dv_sign_challenge, dv_verify_challenge, sign_challenge, sign_commitment, verify_challenge,
+        dv_sign_challenge, dv_verify_challenge, sign_challenge, verify_challenge,
     };
     pub use crate::scalar::Scalar;
 }
