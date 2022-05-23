@@ -137,6 +137,88 @@ impl Scalar {
         }
     }
 
+    /// Returns the multiplicative inverse of the scalar.
+    pub fn invert(&self) -> Scalar {
+        self.montgomerize().montgomery_invert().normalize()
+    }
+
+    fn montgomery_invert(&self) -> Scalar {
+        // Uses the addition chain from
+        // https://briansmith.org/ecc-inversion-addition-chains-01#curve25519_scalar_inversion
+        let bits_1 = self;
+        let bits_10 = bits_1.montgomery_square();
+        let bits_100 = bits_10.montgomery_square();
+        let bits_11 = montgomery_mul(&bits_10, bits_1);
+        let bits_101 = montgomery_mul(&bits_10, &bits_11);
+        let bits_111 = montgomery_mul(&bits_10, &bits_101);
+        let bits_1001 = montgomery_mul(&bits_10, &bits_111);
+        let bits_1011 = montgomery_mul(&bits_10, &bits_1001);
+        let bits_1111 = montgomery_mul(&bits_100, &bits_1011);
+
+        // _10000
+        let mut y = montgomery_mul(&bits_1111, bits_1);
+
+        #[inline]
+        fn square_multiply(y: &mut Scalar, squarings: usize, x: &Scalar) {
+            for _ in 0..squarings {
+                *y = y.montgomery_square();
+            }
+            *y = montgomery_mul(y, x);
+        }
+
+        square_multiply(&mut y, 123 + 3, &bits_101);
+        square_multiply(&mut y, 2 + 2, &bits_11);
+        square_multiply(&mut y, 1 + 4, &bits_1111);
+        square_multiply(&mut y, 1 + 4, &bits_1111);
+        square_multiply(&mut y, 4, &bits_1001);
+        square_multiply(&mut y, 2, &bits_11);
+        square_multiply(&mut y, 1 + 4, &bits_1111);
+        square_multiply(&mut y, 1 + 3, &bits_101);
+        square_multiply(&mut y, 3 + 3, &bits_101);
+        square_multiply(&mut y, 3, &bits_111);
+        square_multiply(&mut y, 1 + 4, &bits_1111);
+        square_multiply(&mut y, 2 + 3, &bits_111);
+        square_multiply(&mut y, 2 + 2, &bits_11);
+        square_multiply(&mut y, 1 + 4, &bits_1011);
+        square_multiply(&mut y, 2 + 4, &bits_1011);
+        square_multiply(&mut y, 6 + 4, &bits_1001);
+        square_multiply(&mut y, 2 + 2, &bits_11);
+        square_multiply(&mut y, 3 + 2, &bits_11);
+        square_multiply(&mut y, 3 + 2, &bits_11);
+        square_multiply(&mut y, 1 + 4, &bits_1001);
+        square_multiply(&mut y, 1 + 3, &bits_111);
+        square_multiply(&mut y, 2 + 4, &bits_1111);
+        square_multiply(&mut y, 1 + 4, &bits_1011);
+        square_multiply(&mut y, 3, &bits_101);
+        square_multiply(&mut y, 2 + 4, &bits_1111);
+        square_multiply(&mut y, 3, &bits_101);
+        square_multiply(&mut y, 1 + 2, &bits_11);
+
+        y
+    }
+
+    /// Compute `(a^2) / R` (mod l) in Montgomery form, where R is the Montgomery modulus 2^260
+    #[inline(never)]
+    fn montgomery_square(&self) -> Scalar {
+        montgomery_reduce(&square_internal(self))
+    }
+
+    /// Puts a scalar in to Montgomery form, i.e. computes `a*R (mod l)`
+    #[inline(never)]
+    fn montgomerize(&self) -> Scalar {
+        montgomery_mul(self, &RR)
+    }
+
+    /// Takes a scalar out of Montgomery form, i.e. computes `a/R (mod l)`
+    #[inline(never)]
+    fn normalize(&self) -> Scalar {
+        let mut limbs = [0u128; 9];
+        for (l, s) in limbs.iter_mut().zip(self.0) {
+            *l = s as u128;
+        }
+        montgomery_reduce(&limbs)
+    }
+
     fn reduce(&self) -> Scalar {
         montgomery_reduce(&mul_internal(self, &R))
     }
@@ -222,6 +304,24 @@ impl Zeroize for Scalar {
     fn zeroize(&mut self) {
         self.0.zeroize();
     }
+}
+
+/// Compute `a^2`
+#[inline(always)]
+fn square_internal(a: &Scalar) -> [u128; 9] {
+    let aa = [a.0[0] * 2, a.0[1] * 2, a.0[2] * 2, a.0[3] * 2];
+
+    [
+        m(a.0[0], a.0[0]),
+        m(aa[0], a.0[1]),
+        m(aa[0], a.0[2]) + m(a.0[1], a.0[1]),
+        m(aa[0], a.0[3]) + m(aa[1], a.0[2]),
+        m(aa[0], a.0[4]) + m(aa[1], a.0[3]) + m(a.0[2], a.0[2]),
+        m(aa[1], a.0[4]) + m(aa[2], a.0[3]),
+        m(aa[2], a.0[4]) + m(a.0[3], a.0[3]),
+        m(aa[3], a.0[4]),
+        m(a.0[4], a.0[4]),
+    ]
 }
 
 /// u64 * u64 = u128 multiply helper
@@ -419,6 +519,33 @@ mod tests {
         let res = &X * &Y;
         for i in 0..5 {
             assert_eq!(res.0[i], XY.0[i]);
+        }
+    }
+
+    #[test]
+    fn invert() {
+        // x = 2238329342913194256032495932344128051776374960164957527413114840482143558222
+        let x = Scalar::from_bits(&[
+            0x4e, 0x5a, 0xb4, 0x34, 0x5d, 0x47, 0x08, 0x84, 0x59, 0x13, 0xb4, 0x64, 0x1b, 0xc2,
+            0x7d, 0x52, 0x52, 0xa5, 0x85, 0x10, 0x1b, 0xcc, 0x42, 0x44, 0xd4, 0x49, 0xf4, 0xa8,
+            0x79, 0xd9, 0xf2, 0x04,
+        ]);
+
+        // 1/x = 6859937278830797291664592131120606308688036382723378951768035303146619657244
+        let x_inv = Scalar::from_bits(&[
+            0x1c, 0xdc, 0x17, 0xfc, 0xe0, 0xe9, 0xa5, 0xbb, 0xd9, 0x24, 0x7e, 0x56, 0xbb, 0x01,
+            0x63, 0x47, 0xbb, 0xba, 0x31, 0xed, 0xd5, 0xa9, 0xbb, 0x96, 0xd5, 0x0b, 0xcd, 0x7a,
+            0x3f, 0x96, 0x2a, 0x0f,
+        ]);
+
+        let res = x.invert();
+        for i in 0..5 {
+            assert_eq!(res.0[i], x_inv.0[i]);
+        }
+
+        let res = &res * &x;
+        for i in 0..5 {
+            assert_eq!(res.0[i], Scalar::ONE.0[i]);
         }
     }
 }
