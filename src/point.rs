@@ -14,6 +14,9 @@ pub const G: Point = Point([9, 0, 0, 0, 0]);
 pub struct Point(pub(crate) [u64; 5]);
 
 impl Point {
+    /// The length of an encoded point.
+    pub const LEN: usize = 32;
+
     /// Decodes the given Elligator2 representative and returns a [Point].
     pub fn from_elligator(rep: &[u8; 32]) -> Point {
         let r_0 = Point::from_bytes(rep);
@@ -46,6 +49,14 @@ impl Point {
         x[31] &= 127;
         fiat_25519_from_bytes(&mut ret.0, &x);
         ret.reduce()
+    }
+
+    /// Parses the given byte array as a [Point].
+    ///
+    /// Only properly encoded points are parsed.
+    pub fn from_canonical_bytes(x: &[u8]) -> Option<Point> {
+        let x: [u8; 32] = x.try_into().ok()?;
+        (x[31] & 128 == 0).then(|| Point::from_bytes(&x))
     }
 
     /// Returns the point as a byte array.
@@ -424,5 +435,21 @@ mod tests {
             hits += 1;
         }
         assert!(hits > 1);
+    }
+
+    #[test]
+    fn canonical_encoding_round_trip() {
+        // Always decode properly-encoded points.
+        for _ in 0..1_000 {
+            let q = Point::from_elligator(&thread_rng().gen());
+            let b = q.as_bytes();
+            assert!(Point::from_canonical_bytes(&b).is_some())
+        }
+
+        // Bounce all points with a high bit set. That's it.
+        let q = Point::from_elligator(&thread_rng().gen());
+        let mut b = q.as_bytes();
+        b[31] |= 128;
+        assert!(Point::from_canonical_bytes(&b).is_none());
     }
 }
