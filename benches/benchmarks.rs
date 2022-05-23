@@ -88,7 +88,7 @@ fn elligator_benchmarks(c: &mut Criterion) {
 
     fn generate_key() -> (Point, [u8; 32]) {
         loop {
-            let d = Scalar::reduce(&thread_rng().gen());
+            let d = Scalar::from_bytes(&thread_rng().gen());
             let q = &G * &d;
             if let Some(rep) = q.to_elligator(Choice::from(0)) {
                 return (q, rep);

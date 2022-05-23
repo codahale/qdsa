@@ -29,7 +29,7 @@ pub fn verify(
 ) -> bool {
     let q = Point::from_bytes(pk);
     let i = Point::from_bytes(&sig[..32].try_into().unwrap());
-    let s = Scalar::reduce(&sig[32..].try_into().unwrap());
+    let s = Scalar::from_bytes(&sig[32..].try_into().unwrap());
 
     verify_challenge(&q, hash(&[&sig[..32], pk, m]), &i, &s)
 }
@@ -37,13 +37,13 @@ pub fn verify(
 /// Given an ephemeral value (e.g. `H(nonce || d || m)`), returns the commitment scalar `k` and
 /// commitment point `I`.
 pub fn sign_commitment(ephemeral: [u8; 64]) -> (Scalar, Point) {
-    let k = Scalar::wide_reduce(&ephemeral);
+    let k = Scalar::from_bytes_wide(&ephemeral);
     (k, (&G * &k))
 }
 
 /// Given a challenge (e.g. `H(I || Q || m)`), returns the proof scalar `s`.
 pub fn sign_challenge(d: &Scalar, k: &Scalar, challenge: [u8; 64]) -> Scalar {
-    let r = Scalar::wide_reduce(&challenge).abs();
+    let r = Scalar::from_bytes_wide(&challenge).abs();
     (k - &(&r * d)).abs()
 }
 
@@ -61,7 +61,7 @@ pub fn verify_challenge(q: &Point, challenge: [u8; 64], i: &Point, s: &Scalar) -
     }
 
     let t0 = &G * s; // t0 = [s]G
-    let t1 = q * &Scalar::wide_reduce(&challenge); // t1 = [rd]G
+    let t1 = q * &Scalar::from_bytes_wide(&challenge); // t1 = [rd]G
 
     // return true iff ±I ∈ {±([s]G + [rd]G), ±([s]G - [rd]G)}
     let (bzz, bxz, bxx) = b_values(&t0, &t1);

@@ -4,7 +4,7 @@ use fiat_crypto::curve25519_64::*;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
-use crate::Scalar;
+use crate::scalar::Scalar;
 
 /// The generator point for Curve25519.
 pub const G: Point = Point([9, 0, 0, 0, 0]);
@@ -415,7 +415,7 @@ mod tests {
     fn elligator_round_trip() {
         let mut hits = 0;
         for _ in 0..100 {
-            let d = Scalar::reduce(&thread_rng().gen());
+            let d = Scalar::from_bytes(&thread_rng().gen());
             let q = &G * &d;
             if let Some(rep) = q.to_elligator(Choice::from(thread_rng().gen::<u8>() % 2)) {
                 let q_p = Point::from_elligator(&rep);
