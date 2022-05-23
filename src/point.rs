@@ -328,9 +328,10 @@ impl Mul<&Scalar> for &Point {
         let mut tmp0: Point;
         let mut tmp1: Point;
         let mut swap = Choice::from(0);
+        let rhs = rhs.as_bytes();
 
         for idx in (0..=254).rev() {
-            let bit = (((rhs.0[idx >> 3] >> (idx & 7)) & 1) as u8).into();
+            let bit = (((rhs[idx >> 3] >> (idx & 7)) & 1) as u8).into();
             swap ^= bit;
             x2.swap(&mut x3, swap);
             z2.swap(&mut z3, swap);

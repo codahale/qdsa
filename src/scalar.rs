@@ -4,7 +4,7 @@ use zeroize::Zeroize;
 
 /// A scalar value of Curve25519.
 #[derive(Copy, Clone, Default)]
-pub struct Scalar(pub(crate) [u16; 32]);
+pub struct Scalar([u16; 32]);
 
 impl Scalar {
     /// Clamps the given byte array and returns a valid [Scalar].
