@@ -201,27 +201,31 @@ mod tests {
 
     #[test]
     fn dv_qdsa_round_trip() {
-        let d_s = Scalar::clamp(&thread_rng().gen());
-        let q_s = &G * &d_s;
+        for _ in 0..1000 {
+            let d_s = Scalar::clamp(&thread_rng().gen());
+            let q_s = &G * &d_s;
 
-        let d_v = Scalar::clamp(&thread_rng().gen());
-        let q_v = &G * &d_v;
+            let d_v = Scalar::clamp(&thread_rng().gen());
+            let q_v = &G * &d_v;
 
-        let message = b"this is a message";
+            let message = b"this is a message";
 
-        // Create a designated verifier signature.
-        let (i, x) = {
-            // Generate a standard commitment.
-            let nonce = thread_rng().gen::<[u8; 32]>();
-            let k = Scalar::from_bytes_wide(&shake128(&[&nonce, &d_s.as_bytes(), message]));
-            let i = &G * &k;
-            let r = Scalar::from_bytes_wide(&shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]));
-            let x = dv_sign_challenge(&d_s, &k, &q_v, &r);
-            (i, x)
-        };
+            // Create a designated verifier signature.
+            let (i, x) = {
+                // Generate a standard commitment.
+                let nonce = thread_rng().gen::<[u8; 32]>();
+                let k = Scalar::from_bytes_wide(&shake128(&[&nonce, &d_s.as_bytes(), message]));
+                let i = &G * &k;
+                let r =
+                    Scalar::from_bytes_wide(&shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]));
+                let x = dv_sign_challenge(&d_s, &k, &q_v, &r);
+                (i, x)
+            };
 
-        // Re-create the challenge using the commitment point.
-        let r_p = Scalar::from_bytes_wide(&shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]));
-        assert!(dv_verify_challenge(&q_s, &d_v, &r_p, &i, &x));
+            // Re-create the challenge using the commitment point.
+            let r_p =
+                Scalar::from_bytes_wide(&shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]));
+            assert!(dv_verify_challenge(&q_s, &d_v, &r_p, &i, &x));
+        }
     }
 }

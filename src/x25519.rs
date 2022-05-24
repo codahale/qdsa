@@ -36,16 +36,6 @@ mod tests {
     }
 
     #[test]
-    fn x25519_kat() {
-        let sk = hex!("05aab728af3372ef55d38490a70a3bd1cedddcf625256ff0385bd96df9d5aa13");
-        let pk = hex!("fc35467733cc25d347060732608e1258d48545761510fae014083e209c8eb533");
-        assert_eq!(pk, public_key(&sk));
-
-        let ss = hex!("c7e39e2091e8638b6c1cf382bdd7b28e8a1e64bc2f2c8e0f80da1f1352bd6661");
-        assert_eq!(ss, x25519(&pk, &sk));
-    }
-
-    #[test]
     fn dh_round_trip() {
         for _ in 0..1000 {
             let sk_a = thread_rng().gen();
@@ -60,25 +50,6 @@ mod tests {
 
             assert_eq!(ss_a, ss_b);
             assert_ne!(ss_a, ss_c);
-        }
-    }
-
-    #[test]
-    fn dh_interop() {
-        for _ in 0..1000 {
-            let sk_a = thread_rng().gen();
-            let pk_a = public_key(&sk_a);
-
-            let sk_b = thread_rng().gen();
-            let pk_b = public_key(&sk_b);
-
-            let ss_a = x25519(&pk_b, &sk_a);
-
-            let pk_a = orion::kex::PublicKey::from(pk_a);
-            let sk_b = orion::hazardous::ecc::x25519::PrivateKey::from(sk_b);
-            let ss_b = orion::hazardous::ecc::x25519::key_agreement(&sk_b, &pk_a).unwrap();
-
-            assert_eq!(ss_b, &ss_a[..]);
         }
     }
 }
