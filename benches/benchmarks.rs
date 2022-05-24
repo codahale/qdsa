@@ -9,83 +9,7 @@ use subtle::Choice;
 use qdsa::hazmat::{Point, Scalar, G};
 use qdsa::{public_key, sign, verify, x25519};
 
-fn keygen_benchmarks(c: &mut Criterion) {
-    let mut g = c.benchmark_group("keygen");
-    g.confidence_level(0.99).significance_level(0.01);
-
-    g.bench_function("x25519-qdsa", |b| b.iter(|| public_key(&[22u8; 32])));
-
-    g.bench_function("x25529-orion", |b| {
-        let sk = orion::hazardous::ecc::x25519::PrivateKey::from([0u8; 32]);
-        b.iter(|| {
-            let pk: orion::kex::PublicKey =
-                (&sk).try_into().expect("unable to calculate public key");
-            pk.to_bytes()
-        })
-    });
-
-    g.finish();
-}
-
-fn ecdh_benchmarks(c: &mut Criterion) {
-    let mut g = c.benchmark_group("ecdh");
-    g.confidence_level(0.99).significance_level(0.01);
-
-    g.bench_function("x25519-qdsa", |b| {
-        let sk_a = thread_rng().gen();
-        let pk_b = public_key(&thread_rng().gen());
-
-        b.iter(|| x25519(&sk_a, &pk_b))
-    });
-
-    g.bench_function("x25529-orion", |b| {
-        let sk_a = orion::hazardous::ecc::x25519::PrivateKey::from([22u8; 32]);
-        let pk_a: orion::kex::PublicKey =
-            (&sk_a).try_into().expect("unable to calculate public key");
-        let sk_b = orion::hazardous::ecc::x25519::PrivateKey::from([23u8; 32]);
-        b.iter(|| orion::hazardous::ecc::x25519::key_agreement(&sk_b, &pk_a).unwrap())
-    });
-
-    g.finish();
-}
-
-fn sign_benchmarks(c: &mut Criterion) {
-    let mut g = c.benchmark_group("sign");
-    g.confidence_level(0.99).significance_level(0.01);
-
-    g.bench_function("qdsa", |b| {
-        let sk = thread_rng().gen();
-        let pk = public_key(&sk);
-        let nonce = thread_rng().gen();
-        let message = b"this is a short message";
-
-        b.iter(|| sign(&pk, &sk, &nonce, message, shake128))
-    });
-
-    g.finish();
-}
-
-fn verify_benchmarks(c: &mut Criterion) {
-    let mut g = c.benchmark_group("verify");
-    g.confidence_level(0.99).significance_level(0.01);
-
-    g.bench_function("qdsa", |b| {
-        let sk = thread_rng().gen();
-        let pk = public_key(&sk);
-        let nonce = thread_rng().gen();
-        let message = b"this is a short message";
-        let sig = sign(&pk, &sk, &nonce, message, shake128);
-
-        b.iter(|| verify(&pk, &sig, message, shake128))
-    });
-
-    g.finish();
-}
-
-fn elligator_benchmarks(c: &mut Criterion) {
-    let mut g = c.benchmark_group("elligator");
-    g.confidence_level(0.99).significance_level(0.01);
-
+fn benchmarks(c: &mut Criterion) {
     fn generate_key() -> (Point, [u8; 32]) {
         loop {
             let d = Scalar::from_bytes(&thread_rng().gen());
@@ -97,12 +21,37 @@ fn elligator_benchmarks(c: &mut Criterion) {
     }
 
     let (q, rep) = generate_key();
+    let sk_a = thread_rng().gen();
+    let pk_a = public_key(&sk_a);
+    let sk_b = thread_rng().gen();
+    let pk_b = public_key(&sk_b);
 
-    g.bench_function("encode", |b| b.iter(|| q.to_elligator(Choice::from(0))));
+    c.bench_function("public_key", |b| b.iter(|| public_key(&sk_a)));
 
-    g.bench_function("decode", |b| b.iter(|| Point::from_elligator(&rep)));
+    c.bench_function("x25519", |b| b.iter(|| x25519(&sk_a, &pk_b)));
 
-    g.finish();
+    c.bench_function("sign", |b| {
+        let nonce = thread_rng().gen();
+        let message = b"this is a short message";
+
+        b.iter(|| sign(&pk_a, &sk_a, &nonce, message, shake128))
+    });
+
+    c.bench_function("verify", |b| {
+        let nonce = thread_rng().gen();
+        let message = b"this is a short message";
+        let sig = sign(&pk_a, &sk_a, &nonce, message, shake128);
+
+        b.iter(|| verify(&pk_a, &sig, message, shake128))
+    });
+
+    c.bench_function("elligator-encode", |b| {
+        b.iter(|| q.to_elligator(Choice::from(0)))
+    });
+
+    c.bench_function("elligator-decode", |b| {
+        b.iter(|| Point::from_elligator(&rep))
+    });
 }
 
 fn shake128(bin: &[&[u8]]) -> [u8; 64] {
@@ -117,12 +66,5 @@ fn shake128(bin: &[&[u8]]) -> [u8; 64] {
     digest
 }
 
-criterion_group!(
-    benches,
-    keygen_benchmarks,
-    ecdh_benchmarks,
-    sign_benchmarks,
-    verify_benchmarks,
-    elligator_benchmarks,
-);
+criterion_group!(benches, benchmarks);
 criterion_main!(benches);
