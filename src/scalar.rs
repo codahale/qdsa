@@ -54,8 +54,8 @@ impl Scalar {
         hi.0[3] = ((words[6] >> 32) | (words[7] << 32)) & mask;
         hi.0[4] = words[7] >> 20;
 
-        lo = montgomery_mul(&lo, &R); // (lo * R) / R = lo
-        hi = montgomery_mul(&hi, &RR); // (hi * R^2) / R = hi * R
+        lo = lo.montgomery_mul(&R); // (lo * R) / R = lo
+        hi = hi.montgomery_mul(&RR); // (hi * R^2) / R = hi * R
 
         &hi + &lo
     }
@@ -148,22 +148,22 @@ impl Scalar {
         let bits_1 = self;
         let bits_10 = bits_1.montgomery_square();
         let bits_100 = bits_10.montgomery_square();
-        let bits_11 = montgomery_mul(&bits_10, bits_1);
-        let bits_101 = montgomery_mul(&bits_10, &bits_11);
-        let bits_111 = montgomery_mul(&bits_10, &bits_101);
-        let bits_1001 = montgomery_mul(&bits_10, &bits_111);
-        let bits_1011 = montgomery_mul(&bits_10, &bits_1001);
-        let bits_1111 = montgomery_mul(&bits_100, &bits_1011);
+        let bits_11 = bits_10.montgomery_mul(bits_1);
+        let bits_101 = bits_10.montgomery_mul(&bits_11);
+        let bits_111 = bits_10.montgomery_mul(&bits_101);
+        let bits_1001 = bits_10.montgomery_mul(&bits_111);
+        let bits_1011 = bits_10.montgomery_mul(&bits_1001);
+        let bits_1111 = bits_100.montgomery_mul(&bits_1011);
 
         // _10000
-        let mut y = montgomery_mul(&bits_1111, bits_1);
+        let mut y = bits_1111.montgomery_mul(bits_1);
 
         #[inline]
         fn square_multiply(y: &mut Scalar, squarings: usize, x: &Scalar) {
             for _ in 0..squarings {
                 *y = y.montgomery_square();
             }
-            *y = montgomery_mul(y, x);
+            *y = y.montgomery_mul(x);
         }
 
         square_multiply(&mut y, 123 + 3, &bits_101);
@@ -200,13 +200,55 @@ impl Scalar {
     /// Compute `(a^2) / R` (mod l) in Montgomery form, where R is the Montgomery modulus 2^260
     #[inline(never)]
     fn montgomery_square(&self) -> Scalar {
-        montgomery_reduce(&square_internal(self))
+        montgomery_reduce(&self.square_internal())
+    }
+
+    /// Compute `a^2`
+    #[inline(always)]
+    fn square_internal(&self) -> [u128; 9] {
+        let a = self;
+        let aa = [a.0[0] * 2, a.0[1] * 2, a.0[2] * 2, a.0[3] * 2];
+
+        [
+            m(a.0[0], a.0[0]),
+            m(aa[0], a.0[1]),
+            m(aa[0], a.0[2]) + m(a.0[1], a.0[1]),
+            m(aa[0], a.0[3]) + m(aa[1], a.0[2]),
+            m(aa[0], a.0[4]) + m(aa[1], a.0[3]) + m(a.0[2], a.0[2]),
+            m(aa[1], a.0[4]) + m(aa[2], a.0[3]),
+            m(aa[2], a.0[4]) + m(a.0[3], a.0[3]),
+            m(aa[3], a.0[4]),
+            m(a.0[4], a.0[4]),
+        ]
+    }
+
+    /// Compute `a * b`
+    #[inline(always)]
+    fn mul_internal(&self, b: &Scalar) -> [u128; 9] {
+        let a = self;
+        let mut z = [0u128; 9];
+
+        z[0] = m(a.0[0], b.0[0]);
+        z[1] = m(a.0[0], b.0[1]) + m(a.0[1], b.0[0]);
+        z[2] = m(a.0[0], b.0[2]) + m(a.0[1], b.0[1]) + m(a.0[2], b.0[0]);
+        z[3] = m(a.0[0], b.0[3]) + m(a.0[1], b.0[2]) + m(a.0[2], b.0[1]) + m(a.0[3], b.0[0]);
+        z[4] = m(a.0[0], b.0[4])
+            + m(a.0[1], b.0[3])
+            + m(a.0[2], b.0[2])
+            + m(a.0[3], b.0[1])
+            + m(a.0[4], b.0[0]);
+        z[5] = m(a.0[1], b.0[4]) + m(a.0[2], b.0[3]) + m(a.0[3], b.0[2]) + m(a.0[4], b.0[1]);
+        z[6] = m(a.0[2], b.0[4]) + m(a.0[3], b.0[3]) + m(a.0[4], b.0[2]);
+        z[7] = m(a.0[3], b.0[4]) + m(a.0[4], b.0[3]);
+        z[8] = m(a.0[4], b.0[4]);
+
+        z
     }
 
     /// Puts a scalar in to Montgomery form, i.e. computes `a*R (mod l)`
     #[inline(never)]
     fn montgomerize(&self) -> Scalar {
-        montgomery_mul(self, &RR)
+        self.montgomery_mul(&RR)
     }
 
     /// Takes a scalar out of Montgomery form, i.e. computes `a/R (mod l)`
@@ -219,8 +261,14 @@ impl Scalar {
         montgomery_reduce(&limbs)
     }
 
+    #[inline(always)]
+    fn montgomery_mul(&self, b: &Scalar) -> Scalar {
+        montgomery_reduce(&self.mul_internal(b))
+    }
+
+    #[inline(always)]
     fn reduce(&self) -> Scalar {
-        montgomery_reduce(&mul_internal(self, &R))
+        self.montgomery_mul(&R)
     }
 }
 
@@ -273,8 +321,8 @@ impl Mul for &Scalar {
     type Output = Scalar;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let ab = montgomery_reduce(&mul_internal(self, rhs));
-        montgomery_reduce(&mul_internal(&ab, &RR))
+        let ab = montgomery_reduce(&self.mul_internal(rhs));
+        montgomery_reduce(&ab.mul_internal(&RR))
     }
 }
 
@@ -282,7 +330,7 @@ impl Neg for &Scalar {
     type Output = Scalar;
 
     fn neg(self) -> Scalar {
-        &Scalar::ZERO - &montgomery_reduce(&mul_internal(self, &R))
+        &Scalar::ZERO - &montgomery_reduce(&self.mul_internal(&R))
     }
 }
 
@@ -304,24 +352,6 @@ impl Zeroize for Scalar {
     fn zeroize(&mut self) {
         self.0.zeroize();
     }
-}
-
-/// Compute `a^2`
-#[inline(always)]
-fn square_internal(a: &Scalar) -> [u128; 9] {
-    let aa = [a.0[0] * 2, a.0[1] * 2, a.0[2] * 2, a.0[3] * 2];
-
-    [
-        m(a.0[0], a.0[0]),
-        m(aa[0], a.0[1]),
-        m(aa[0], a.0[2]) + m(a.0[1], a.0[1]),
-        m(aa[0], a.0[3]) + m(aa[1], a.0[2]),
-        m(aa[0], a.0[4]) + m(aa[1], a.0[3]) + m(a.0[2], a.0[2]),
-        m(aa[1], a.0[4]) + m(aa[2], a.0[3]),
-        m(aa[2], a.0[4]) + m(a.0[3], a.0[3]),
-        m(aa[3], a.0[4]),
-        m(a.0[4], a.0[4]),
-    ]
 }
 
 /// u64 * u64 = u128 multiply helper
@@ -364,33 +394,6 @@ fn montgomery_reduce(limbs: &[u128; 9]) -> Scalar {
 
     // result may be >= l, so attempt to subtract l
     &Scalar([r0, r1, r2, r3, r4]) - l
-}
-
-/// Compute `a * b`
-#[inline(always)]
-fn mul_internal(a: &Scalar, b: &Scalar) -> [u128; 9] {
-    let mut z = [0u128; 9];
-
-    z[0] = m(a.0[0], b.0[0]);
-    z[1] = m(a.0[0], b.0[1]) + m(a.0[1], b.0[0]);
-    z[2] = m(a.0[0], b.0[2]) + m(a.0[1], b.0[1]) + m(a.0[2], b.0[0]);
-    z[3] = m(a.0[0], b.0[3]) + m(a.0[1], b.0[2]) + m(a.0[2], b.0[1]) + m(a.0[3], b.0[0]);
-    z[4] = m(a.0[0], b.0[4])
-        + m(a.0[1], b.0[3])
-        + m(a.0[2], b.0[2])
-        + m(a.0[3], b.0[1])
-        + m(a.0[4], b.0[0]);
-    z[5] = m(a.0[1], b.0[4]) + m(a.0[2], b.0[3]) + m(a.0[3], b.0[2]) + m(a.0[4], b.0[1]);
-    z[6] = m(a.0[2], b.0[4]) + m(a.0[3], b.0[3]) + m(a.0[4], b.0[2]);
-    z[7] = m(a.0[3], b.0[4]) + m(a.0[4], b.0[3]);
-    z[8] = m(a.0[4], b.0[4]);
-
-    z
-}
-
-#[inline(always)]
-fn montgomery_mul(a: &Scalar, b: &Scalar) -> Scalar {
-    montgomery_reduce(&mul_internal(a, b))
 }
 
 /// `R` = R % L where R = 2^260
@@ -479,7 +482,7 @@ mod tests {
 
     /// a+b = 0
     /// a-b = 4702830963113076907131374482398799845891318823599740229925345317690316127506
-    pub static AB: Scalar = Scalar([
+    const AB: Scalar = Scalar([
         0x000a46d80f677d12,
         0x0003787a54cf8188,
         0x0004954f0555c7dc,

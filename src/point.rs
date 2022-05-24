@@ -17,6 +17,21 @@ impl Point {
     /// The length of an encoded point.
     pub const LEN: usize = 32;
 
+    /// The identity point of Curve25519.
+    pub const ZERO: Point = Point([0, 0, 0, 0, 0]);
+
+    /// The `1` value of Curve25519.
+    pub const ONE: Point = Point([1, 0, 0, 0, 0]);
+
+    /// The `-1` value of Curve25519.
+    pub const MINUS_ONE: Point = Point([
+        2251799813685228,
+        2251799813685247,
+        2251799813685247,
+        2251799813685247,
+        2251799813685247,
+    ]);
+
     /// Decodes the given Elligator2 representative and returns a [Point].
     pub fn from_elligator(rep: &[u8; 32]) -> Point {
         let r_0 = Point::from_bytes(rep);
@@ -66,21 +81,6 @@ impl Point {
         fiat_25519_to_bytes(&mut ret, &self.0);
         ret
     }
-
-    /// The identity point of Curve25519.
-    pub const ZERO: Point = Point([0, 0, 0, 0, 0]);
-
-    /// The `1` value of Curve25519.
-    pub const ONE: Point = Point([1, 0, 0, 0, 0]);
-
-    /// The `-1` value of Curve25519.
-    pub const MINUS_ONE: Point = Point([
-        2251799813685228,
-        2251799813685247,
-        2251799813685247,
-        2251799813685247,
-        2251799813685247,
-    ]);
 
     /// Returns `true` iff the point is equal to zero.
     #[inline]
