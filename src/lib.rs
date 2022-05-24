@@ -7,7 +7,6 @@
 pub use crate::qdsa::{sign, verify};
 pub use crate::x25519::{public_key, x25519};
 
-mod generator;
 mod point;
 mod qdsa;
 mod scalar;
@@ -20,5 +19,4 @@ pub mod hazmat {
         dv_sign_challenge, dv_verify_challenge, sign_challenge, verify_challenge,
     };
     pub use crate::scalar::Scalar;
-    pub use crate::x25519::key_pair;
 }

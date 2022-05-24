@@ -1,26 +1,19 @@
-use crate::generator::G;
-use crate::point::Point;
+use crate::point::{Point, G};
 use crate::scalar::Scalar;
 
 /// Given a public key `pk` and secret key `sk`, returns the X25519 shared secret.
 #[must_use]
 pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
-    let q = Point::from_bytes(pk);
     let d = Scalar::clamp(sk);
+    let q = Point::from_bytes(pk);
     (&q * &d).as_bytes()
 }
 
 /// Given a secret key `sk`, returns the corresponding public key.
 pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
-    let (_, q) = key_pair(sk);
-    q.as_bytes()
-}
-
-/// Given a secret key `sk`, returns the corresponding private scalar and public point.
-pub fn key_pair(sk: &[u8; 32]) -> (Scalar, Point) {
     let d = Scalar::clamp(sk);
     let q = &G * &d;
-    (d, q)
+    q.as_bytes()
 }
 
 #[cfg(test)]
