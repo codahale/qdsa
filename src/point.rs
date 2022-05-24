@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
@@ -266,7 +267,7 @@ impl Point {
     }
 
     #[inline]
-    fn swap(&mut self, b: &mut Point, swap: Choice) {
+    pub(crate) fn swap(&mut self, b: &mut Point, swap: Choice) {
         let swap = swap.unwrap_u8();
         let tmp_x = *self;
         let tmp_y = *b;
@@ -390,6 +391,12 @@ impl ConstantTimeEq for Point {
     }
 }
 
+impl Debug for Point {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:02x?}", self.as_bytes())
+    }
+}
+
 impl Zeroize for Point {
     fn zeroize(&mut self) {
         self.0.zeroize();
@@ -418,8 +425,6 @@ const MONTGOMERY_A_NEG: Point = Point([
 mod tests {
     use rand::{thread_rng, Rng};
 
-    use crate::Scalar;
-
     use super::*;
 
     #[test]
@@ -430,7 +435,7 @@ mod tests {
             let q = &G * &d;
             if let Some(rep) = q.to_elligator(Choice::from(thread_rng().gen::<u8>() % 2)) {
                 let q_p = Point::from_elligator(&rep);
-                assert!(q == q_p);
+                assert_eq!(q, q_p);
             }
             hits += 1;
         }
