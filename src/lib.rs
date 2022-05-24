@@ -20,4 +20,5 @@ pub mod hazmat {
         dv_sign_challenge, dv_verify_challenge, sign_challenge, verify_challenge,
     };
     pub use crate::scalar::Scalar;
+    pub use crate::x25519::key_pair;
 }

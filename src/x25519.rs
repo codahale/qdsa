@@ -12,9 +12,15 @@ pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
 
 /// Given a secret key `sk`, returns the corresponding public key.
 pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
+    let (_, q) = key_pair(sk);
+    q.as_bytes()
+}
+
+/// Given a secret key `sk`, returns the corresponding private scalar and public point.
+pub fn key_pair(sk: &[u8; 32]) -> (Scalar, Point) {
     let d = Scalar::clamp(sk);
     let q = &G * &d;
-    q.as_bytes()
+    (d, q)
 }
 
 #[cfg(test)]
