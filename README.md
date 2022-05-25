@@ -12,8 +12,4 @@ Portions of the Curve25519 and scalar arithmetic were adapted from
 
 Copyright © 2022 Coda Hale
 
-Portions of scalar.rs and point.rs:
-Copyright (c) 2016-2021 isis agora lovecruft. All rights reserved.
-Copyright (c) 2016-2021 Henry de Valence. All rights reserved.
-
-Distributed under the MIT License.
+Distributed under the BSD 3-Clause License.
