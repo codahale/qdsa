@@ -19,6 +19,7 @@ pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use hex_literal::hex;
+    use wycheproof::xdh::{TestName, TestSet};
 
     use super::*;
 
@@ -66,5 +67,22 @@ mod tests {
         //     hex!("7c3911e0ab2586fd864497297e575e6f3bc601c0883c30df5f4dd2d24f665424"),
         //     k_1_000_000,
         // );
+    }
+
+    #[test]
+    fn wycheproof_test_vectors() {
+        let test_set =
+            TestSet::load(TestName::X25519).expect("unable to load Wycheproof test vectors");
+
+        for g in test_set.test_groups {
+            for t in g.tests {
+                let sk: [u8; 32] = t.private_key.try_into().expect("invalid scalar len");
+                let pk: [u8; 32] = t.public_key.try_into().expect("invalid point len");
+                let ss: [u8; 32] = t.shared_secret.try_into().expect("invalid point len");
+
+                let ss_p = x25519(&pk, &sk);
+                assert_eq!(&ss, &ss_p, "error for {}", t.tc_id);
+            }
+        }
     }
 }
