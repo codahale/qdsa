@@ -13,7 +13,7 @@ fn benchmarks(c: &mut Criterion) {
         loop {
             let d = Scalar::from_bytes(&thread_rng().gen());
             let q = &G * &d;
-            if let Some(rep) = q.to_elligator(thread_rng()) {
+            if let Some(rep) = q.to_elligator(thread_rng().gen()) {
                 return (q, rep);
             }
         }
@@ -44,9 +44,7 @@ fn benchmarks(c: &mut Criterion) {
         b.iter(|| verify(&pk_a, &sig, message, shake128))
     });
 
-    c.bench_function("elligator-encode", |b| {
-        b.iter(|| q.to_elligator(thread_rng()))
-    });
+    c.bench_function("elligator-encode", |b| b.iter(|| q.to_elligator(128)));
 
     c.bench_function("elligator-decode", |b| {
         b.iter(|| Point::from_elligator(&rep))
