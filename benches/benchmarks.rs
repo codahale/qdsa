@@ -4,7 +4,6 @@ use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
     Shake128,
 };
-use subtle::Choice;
 
 use qdsa::hazmat::{Point, Scalar, G};
 use qdsa::{public_key, sign, verify, x25519};
@@ -14,7 +13,7 @@ fn benchmarks(c: &mut Criterion) {
         loop {
             let d = Scalar::from_bytes(&thread_rng().gen());
             let q = &G * &d;
-            if let Some(rep) = q.to_elligator(Choice::from(0)) {
+            if let Some(rep) = q.to_elligator(thread_rng()) {
                 return (q, rep);
             }
         }
@@ -46,7 +45,7 @@ fn benchmarks(c: &mut Criterion) {
     });
 
     c.bench_function("elligator-encode", |b| {
-        b.iter(|| q.to_elligator(Choice::from(0)))
+        b.iter(|| q.to_elligator(thread_rng()))
     });
 
     c.bench_function("elligator-decode", |b| {

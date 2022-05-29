@@ -2,6 +2,7 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
+use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
@@ -35,7 +36,11 @@ impl Point {
 
     /// Decodes the given Elligator2 representative and returns a [Point].
     pub fn from_elligator(rep: &[u8; 32]) -> Point {
-        let r_0 = Point::from_bytes(rep);
+        // Unmask sign bit.
+        let mut rep = *rep;
+        rep[31] &= 0b01111111;
+
+        let r_0 = Point::from_bytes(&rep);
         let one = Point::ONE;
         let d_1 = &one + &r_0.square2(); /* 2r^2 */
 
@@ -116,7 +121,14 @@ impl Point {
     }
 
     /// Returns the Elligator2 representative, if any.
-    pub fn to_elligator(&self, v_is_negative: Choice) -> Option<[u8; 32]> {
+    pub fn to_elligator(&self, mut rng: impl RngCore + CryptoRng) -> Option<[u8; 32]> {
+        // Generate a random byte.
+        let mut mask = [0u8; 1];
+        rng.fill_bytes(&mut mask);
+
+        // Use the top bit to pick the sign of v.
+        let v_is_negative = (mask[0] >> 7).into();
+
         let one = Point::ONE;
         let u = Point::from_bytes(&self.as_bytes());
         let u_plus_a = &u + &MONTGOMERY_A;
@@ -149,9 +161,12 @@ impl Point {
         let r = &root * &add;
 
         // Both r and -r are valid results. Pick the nonnegative one.
-        let result = r.select(&-&r, r.is_negative());
+        let mut rep = r.select(&-&r, r.is_negative()).as_bytes();
 
-        Some(result.as_bytes())
+        // Use the bottom bit of the mask byte to obscure the sign bit of the representative.
+        rep[31] ^= mask[0] << 7;
+
+        Some(rep)
     }
 
     fn square2(&self) -> Point {
@@ -433,7 +448,7 @@ mod tests {
         for _ in 0..100 {
             let d = Scalar::from_bytes(&thread_rng().gen());
             let q = &G * &d;
-            if let Some(rep) = q.to_elligator(Choice::from(thread_rng().gen::<u8>() % 2)) {
+            if let Some(rep) = q.to_elligator(thread_rng()) {
                 let q_p = Point::from_elligator(&rep);
                 assert_eq!(q, q_p);
             }
