@@ -419,21 +419,21 @@ impl Zeroize for Point {
 }
 
 const SQRT_M1: Point = Point([
-    1718705420411056,
-    234908883556509,
-    2233514472574048,
-    2117202627021982,
-    765476049583133,
+    0x0006_1b27_4a0e_a0b0,
+    0x0000_d5a5_fc8f_189d,
+    0x0007_ef5e_9cbd_0c60,
+    0x0007_8595_a680_4c9e,
+    0x0002_b832_4804_fc1d,
 ]);
 
 const MONTGOMERY_A: Point = Point([486662, 0, 0, 0, 0]);
 
 const MONTGOMERY_A_NEG: Point = Point([
-    2251799813198567,
-    2251799813685247,
-    2251799813685247,
-    2251799813685247,
-    2251799813685247,
+    0x0007_ffff_fff8_92e7,
+    0x0007_ffff_ffff_ffff,
+    0x0007_ffff_ffff_ffff,
+    0x0007_ffff_ffff_ffff,
+    0x0007_ffff_ffff_ffff,
 ]);
 
 #[cfg(test)]

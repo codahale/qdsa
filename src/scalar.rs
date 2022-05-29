@@ -393,20 +393,20 @@ fn montgomery_reduce(limbs: &[u128; 9]) -> Scalar {
 
 /// `R` = R % L where R = 2^260
 const R: Scalar = Scalar([
-    0x000f48bd6721e6ed,
-    0x0003bab5ac67e45a,
-    0x000fffffeb35e51b,
-    0x000fffffffffffff,
-    0x00000fffffffffff,
+    0x000f_48bd_6721_e6ed,
+    0x0003_bab5_ac67_e45a,
+    0x000f_ffff_eb35_e51b,
+    0x000f_ffff_ffff_ffff,
+    0x0000_0fff_ffff_ffff,
 ]);
 
 /// `RR` = (R^2) % L where R = 2^260
 const RR: Scalar = Scalar([
-    0x0009d265e952d13b,
-    0x000d63c715bea69f,
-    0x0005be65cb687604,
-    0x0003dceec73d217f,
-    0x000009411b7c309a,
+    0x0009_d265_e952_d13b,
+    0x000d_63c7_15be_a69f,
+    0x0005_be65_cb68_7604,
+    0x0003_dcee_c73d_217f,
+    0x0000_0941_1b7c_309a,
 ]);
 
 /// `L` * `LFACTOR` = -1 (mod 2^52)
@@ -414,9 +414,9 @@ const LFACTOR: u64 = 0x51da312547e1b;
 
 /// `L` is the order of base point, i.e. 2^252 + 27742317777372353535851937790883648493
 const L: Scalar = Scalar([
-    0x0002631a5cf5d3ed,
-    0x000dea2f79cd6581,
-    0x000000000014def9,
-    0x0000000000000000,
-    0x0000100000000000,
+    0x0002_631a_5cf5_d3ed,
+    0x000d_ea2f_79cd_6581,
+    0x0000_0000_0014_def9,
+    0x0000_0000_0000_0000,
+    0x0000_1000_0000_0000,
 ]);
