@@ -33,9 +33,9 @@ impl Scalar {
     /// Reduces the given 512-bit little-endian array modulo `l`.
     pub fn from_bytes_wide(bytes: &[u8; 64]) -> Scalar {
         let mut words = [0u64; 8];
-        for i in 0..8 {
-            for j in 0..8 {
-                words[i] |= (bytes[(i * 8) + j] as u64) << (j * 8);
+        for (word, chunk) in words.iter_mut().zip(bytes.chunks(8)) {
+            for (j, &b) in chunk.iter().enumerate() {
+                *word |= (b as u64) << (j * 8);
             }
         }
 
@@ -62,9 +62,9 @@ impl Scalar {
 
     fn from_bits(bytes: &[u8; 32]) -> Scalar {
         let mut words = [0u64; 4];
-        for i in 0..4 {
-            for j in 0..8 {
-                words[i] |= (bytes[(i * 8) + j] as u64) << (j * 8);
+        for (word, chunk) in words.iter_mut().zip(bytes.chunks(8)) {
+            for (j, &b) in chunk.iter().enumerate() {
+                *word |= (b as u64) << (j * 8);
             }
         }
 
@@ -276,9 +276,9 @@ impl Add for &Scalar {
 
         // a + b
         let mut carry: u64 = 0;
-        for i in 0..5 {
-            carry = self.0[i] + rhs.0[i] + (carry >> 52);
-            sum.0[i] = carry & mask;
+        for ((a, b), c) in sum.0.iter_mut().zip(self.0).zip(rhs.0) {
+            carry = b + c + (carry >> 52);
+            *a = carry & mask;
         }
 
         // subtract l if the sum is >= l
@@ -295,17 +295,17 @@ impl Sub for &Scalar {
 
         // a - b
         let mut borrow: u64 = 0;
-        for i in 0..5 {
-            borrow = self.0[i].wrapping_sub(rhs.0[i] + (borrow >> 63));
-            difference.0[i] = borrow & mask;
+        for ((a, b), c) in difference.0.iter_mut().zip(self.0).zip(rhs.0) {
+            borrow = b.wrapping_sub(c + (borrow >> 63));
+            *a = borrow & mask;
         }
 
         // conditionally add l if the difference is negative
         let underflow_mask = ((borrow >> 63) ^ 1).wrapping_sub(1);
         let mut carry: u64 = 0;
-        for i in 0..5 {
-            carry = (carry >> 52) + difference.0[i] + (L.0[i] & underflow_mask);
-            difference.0[i] = carry & mask;
+        for (a, b) in difference.0.iter_mut().zip(L.0) {
+            carry = (carry >> 52) + *a + (b & underflow_mask);
+            *a = carry & mask;
         }
 
         difference
