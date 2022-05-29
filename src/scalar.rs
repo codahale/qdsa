@@ -27,7 +27,7 @@ impl Scalar {
 
     /// Reduces the given 256-bit little-endian array modulo `l`.
     pub fn from_bytes(bytes: &[u8; 32]) -> Scalar {
-        Scalar::from_bits(bytes).reduce()
+        Scalar::from_bits(bytes).montgomery_mul(&R)
     }
 
     /// Reduces the given 512-bit little-endian array modulo `l`.
@@ -264,11 +264,6 @@ impl Scalar {
     #[inline(always)]
     fn montgomery_mul(&self, b: &Scalar) -> Scalar {
         montgomery_reduce(&self.mul_internal(b))
-    }
-
-    #[inline(always)]
-    fn reduce(&self) -> Scalar {
-        self.montgomery_mul(&R)
     }
 }
 
