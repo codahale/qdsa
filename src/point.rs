@@ -2,7 +2,6 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
-use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
@@ -120,14 +119,11 @@ impl Point {
         &t20 * &t3 // 254..5,3,1,0
     }
 
-    /// Returns the Elligator2 representative, if any.
-    pub fn to_elligator(&self, mut rng: impl RngCore + CryptoRng) -> Option<[u8; 32]> {
-        // Generate a random byte.
-        let mut mask = [0u8; 1];
-        rng.fill_bytes(&mut mask);
-
-        // Use the top bit to pick the sign of v.
-        let v_is_negative = (mask[0] >> 7).into();
+    /// Returns the Elligator2 representative, if any, using a random mask value to obscure sign
+    /// bits.
+    pub fn to_elligator(&self, mask: u8) -> Option<[u8; 32]> {
+        // Use the top bit of the mask to pick the sign of v.
+        let v_is_negative = (mask >> 7).into();
 
         let one = Point::ONE;
         let u = Point::from_bytes(&self.as_bytes());
@@ -163,8 +159,8 @@ impl Point {
         // Both r and -r are valid results. Pick the nonnegative one.
         let mut rep = r.select(&-&r, r.is_negative()).as_bytes();
 
-        // Use the bottom bit of the mask byte to obscure the sign bit of the representative.
-        rep[31] ^= mask[0] << 7;
+        // Use the bottom bit of the mask to obscure the sign bit of the representative.
+        rep[31] ^= mask << 7;
 
         Some(rep)
     }
@@ -448,7 +444,7 @@ mod tests {
         for _ in 0..100 {
             let d = Scalar::from_bytes(&thread_rng().gen());
             let q = &G * &d;
-            if let Some(rep) = q.to_elligator(thread_rng()) {
+            if let Some(rep) = q.to_elligator(thread_rng().gen()) {
                 let q_p = Point::from_elligator(&rep);
                 assert_eq!(q, q_p);
             }
