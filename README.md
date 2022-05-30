@@ -7,6 +7,7 @@ Tested for compatibility with the the [reference C version](https://joostrenes.n
 Joost Renes.
 Portions of the Curve25519 and scalar arithmetic were adapted from
 [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek).
+Elligator2 compatibility tested with [Monocypher](https://monocypher.org) 3.1.3.
 
 ## License
 

@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
-use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 use zeroize::Zeroize;
 
 use crate::scalar::Scalar;
@@ -35,28 +35,17 @@ impl Point {
 
     /// Decodes the given Elligator2 representative and returns a [Point].
     pub fn from_elligator(rep: &[u8; 32]) -> Point {
-        // Set the top and bottom bits back to zero.
+        // Zero the top two bits.
         let mut rep = *rep;
-        rep[31] &= 0b0111_1111;
-        rep[0] &= 0b1111_1110;
+        rep[31] &= 0b0011_1111;
 
-        let r_0 = Point::from_bytes(&rep);
-        let one = Point::ONE;
-        let d_1 = &one + &r_0.square2(); /* 2r^2 */
-
-        let d = &MONTGOMERY_A_NEG * &(d_1.invert()); /* A/(1+2r^2) */
-
-        let d_sq = &d.square();
-        let au = &MONTGOMERY_A * &d;
-
-        let inner = &(d_sq + &au) + &one;
-        let eps = &d * &inner; /* eps = d^3 + Ad^2 + d */
-
-        let (eps_is_sq, _eps) = Point::sqrt_ratio_i(&eps, &one);
-
-        let tmp = Point::conditional_select(&MONTGOMERY_A, &Point::ZERO, eps_is_sq); /* 0, or A if nonsquare*/
-        let u = &d + &tmp; /* d, or d+A if nonsquare */
-        Point::conditional_select(&u, &-&u, !eps_is_sq) /* d, or -d-A if nonsquare */
+        let r = Point::from_bytes(&rep).square();
+        let t1 = &r + &r;
+        let t2 = (&t1 + &Point::ONE).square();
+        let t3 = &(&(&A2 * &t1) - &t2) * &A;
+        let (t1, is_square) = (&t3 * &(&t2 * &(&t1 + &Point::ONE))).inv_sqrt();
+        let u = Point::conditional_select(&(&r * &U_FACTOR), &Point::ONE, is_square);
+        -&(&(&(&(&u * &A) * &t3) * &t2) * &t1.square())
     }
 
     /// Parses the given byte array as a [Point].
@@ -120,91 +109,70 @@ impl Point {
         &t20 * &t3 // 254..5,3,1,0
     }
 
+    // Inverse square root.
+    // Returns true if x is a square, false otherwise.
+    // After the call:
+    //   isr = sqrt(1/x)        if x is a non-zero square.
+    //   isr = sqrt(sqrt(-1)/x) if x is not a square.
+    //   isr = 0                if x is zero.
+    // We do not guarantee the sign of the square root.
+    fn inv_sqrt(&self) -> (Point, Choice) {
+        let t0 = self.square();
+        let t1 = t0.square();
+        let t1 = &t1.square() * self;
+        let t0 = &(&t1 * &t0).square() * &t1;
+        let t0 = &(1..5).fold(t0.square(), |t1, _| t1.square()) * &t0;
+        let t1 = &(1..10).fold(t0.square(), |t1, _| t1.square()) * &t0;
+        let t1 = &(1..20).fold(t1.square(), |t2, _| t2.square()) * &t1;
+        let t0 = &(1..10).fold(t1.square(), |t1, _| t1.square()) * &t0;
+        let t1 = &(1..50).fold(t0.square(), |t1, _| t1.square()) * &t0;
+        let t1 = &(1..100).fold(t1.square(), |t2, _| t2.square()) * &t1;
+        let t0 = &(1..50).fold(t1.square(), |t1, _| t1.square()) * &t0;
+        let t0 = &(1..2).fold(t0.square(), |t0, _| t0.square()) * self;
+
+        // quartic = x^((p-1)/4)
+        let quartic = &t0.square() * self;
+        let z0 = self.ct_eq(&Point::ZERO);
+        let p1 = quartic.ct_eq(&Point::ONE);
+        let m1 = quartic.ct_eq(&Point::MINUS_ONE);
+        let ms = quartic.ct_eq(&MINUS_SQRT_M1);
+
+        // if quartic == -1 or sqrt(-1)
+        // then  isr = x^((p-1)/4) * sqrt(-1)
+        // else  isr = x^((p-1)/4)
+        (
+            Point::conditional_select(&(&t0 * &SQRT_M1), &t0, !(m1 | ms)),
+            p1 | m1 | z0,
+        )
+    }
+
     /// Returns the Elligator2 representative, if any, using a random mask value to obscure sign
     /// bits.
     pub fn to_elligator(&self, mask: u8) -> Option<[u8; 32]> {
-        let one = Point::ONE;
-        let u_plus_a = self + &MONTGOMERY_A;
-        let uu_plus_u_a = self * &u_plus_a;
+        let t1 = self; // u
+        let t2 = t1 + &A; // u + A
+        let (t3, is_square) = (&(t1 * &t2) * &MINUS_TWO).inv_sqrt(); // sqrt(-1 / non_square * u * (u+A))
+        if is_square.into() {
+            // The only variable time bit. This ultimately reveals how many tries it took us to find
+            // a representable key. This does not affect security as long as we try keys at random.
 
-        // Condition: u is on the curve
-        let vv = &(self * &uu_plus_u_a) + self;
-        let (u_is_on_curve, _) = Point::sqrt_ratio_i(&vv, &one);
-        if (!u_is_on_curve).into() {
-            return None;
+            // multiply by u if v is positive, multiply by u+A otherwise
+            let t1 = Point::conditional_select(t1, &t2, (mask & 1).into());
+            let t3 = &t1 * &t3;
+            let t1 = &t3 * &TWO;
+            let t2 = -&t3;
+            let t3 = Point::conditional_select(&t3, &t2, t1.is_odd());
+
+            let mut rep = t3.as_bytes();
+            rep[31] |= mask & 0b1100_0000;
+            Some(rep)
+        } else {
+            None
         }
-
-        // Condition: u != -A
-        if self == &MONTGOMERY_A_NEG {
-            return None;
-        }
-
-        // Condition: -2u(u+A) is a square
-        let uu2_plus_u_a2 = &uu_plus_u_a + &uu_plus_u_a;
-        // We compute root = sqrt(-1/2u(u+A)) to speed up the calculation.
-        // This is a square if and only if -2u(u+A) is.
-        let (is_square, root) = Point::sqrt_ratio_i(&Point::MINUS_ONE, &uu2_plus_u_a2);
-        if (!(is_square | root.is_zero())).into() {
-            return None;
-        }
-
-        // Use the top bit of the mask to pick the sign of v.
-        let v_is_negative = Choice::from(mask >> 7);
-
-        // if !v_is_negative: r = sqrt(-u / 2(u + a)) = root * u
-        // if  v_is_negative: r = sqrt(-(u+A) / 2u)   = root * (u + A)
-        let mut r = &root * &Point::conditional_select(self, &u_plus_a, v_is_negative);
-
-        // Both r and -r are valid results. Pick the nonnegative one.
-        r.conditional_negate(r.is_negative());
-
-        // As such, the representative will always have a constant low bit of zero and a constant
-        // high bit of zero. Use the bottom bit of the mask to obscure the constant top bit of the
-        // representative and the second-to-bottom bit of the mask to obscure the constant bottom
-        // bit of the representative. If the mask is randomly generated, this should produce a fully
-        // uniform representative.
-        let mut rep = r.as_bytes();
-        rep[31] ^= mask << 7;
-        rep[0] ^= (mask & 0b000_0010) >> 1;
-
-        Some(rep)
-    }
-
-    fn square2(&self) -> Point {
-        let mut square = self.pow2k(1);
-        for v in square.0.iter_mut() {
-            *v *= 2;
-        }
-        square
-    }
-
-    fn sqrt_ratio_i(u: &Point, v: &Point) -> (Choice, Point) {
-        let v3 = &v.square() * v;
-        let v7 = &v3.square() * v;
-        let r = &(u * &v3) * &(u * &v7).pow_p58();
-        let check = v * &r.square();
-
-        let correct_sign_sqrt = check.ct_eq(u);
-        let neg_u = -u;
-        let flipped_sign_sqrt = check.ct_eq(&neg_u);
-        let flipped_sign_sqrt_i = check.ct_eq(&(&neg_u * &SQRT_M1));
-
-        let r = Point::conditional_select(
-            &r,
-            &(&r * &SQRT_M1),
-            flipped_sign_sqrt | flipped_sign_sqrt_i,
-        );
-
-        // Choose the nonnegative square root.
-        let r = Point::conditional_select(&r, &-&r, r.is_negative());
-
-        let was_nonzero_square = correct_sign_sqrt | flipped_sign_sqrt;
-
-        (was_nonzero_square, r)
     }
 
     #[inline]
-    fn is_negative(&self) -> Choice {
+    fn is_odd(&self) -> Choice {
         let mut b = [0u8; 32];
         fiat_25519_to_bytes(&mut b, &self.0);
         (b[0] & 1).into()
@@ -245,17 +213,6 @@ impl Point {
         let t19 = &t18 * &t13; // 249..0
 
         (t19, t3)
-    }
-
-    /// Raise this field element to the power (p-5)/8 = 2^252 -3.
-    #[inline]
-    fn pow_p58(&self) -> Point {
-        // The bits of (p-5)/8 are 101111.....11.
-        //
-        //                                 nonzero bits of exponent
-        let (t19, _) = self.pow22501(); // 249..0
-        let t20 = t19.pow2k(2); // 251..2
-        self * &t20 // 251..2,0
     }
 
     #[inline]
@@ -399,18 +356,57 @@ const SQRT_M1: Point = Point([
     0x0002_b832_4804_fc1d,
 ]);
 
-const MONTGOMERY_A: Point = Point([486662, 0, 0, 0, 0]);
+const MINUS_SQRT_M1: Point = Point([
+    0x0001_e4d8_b5f1_5f3d,
+    0x0007_2a5a_0370_e762,
+    0x0000_10a1_6342_f39f,
+    0x0000_7a6a_597f_b361,
+    0x0005_47cd_b7fb_03e2,
+]);
 
-const MONTGOMERY_A_NEG: Point = Point([
-    0x0007_ffff_fff8_92e7,
+const TWO: Point = Point([
+    0x0000_0000_0000_0002,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+]);
+
+const MINUS_TWO: Point = Point([
+    0x0007_ffff_ffff_ffeb,
     0x0007_ffff_ffff_ffff,
     0x0007_ffff_ffff_ffff,
     0x0007_ffff_ffff_ffff,
     0x0007_ffff_ffff_ffff,
 ]);
 
+const A: Point = Point([
+    0x0000_0000_0007_6d06,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+]);
+
+const A2: Point = Point([
+    0x0000_0037_24c2_1c24,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_0000,
+]);
+
+const U_FACTOR: Point = Point([
+    0x0003_c9b1_6be2_be8d,
+    0x0006_54b4_06e1_cec4,
+    0x0000_2142_c685_e73f,
+    0x0000_f4d4_b2ff_66c2,
+    0x0002_8f9b_6ff6_07c4,
+]);
+
 #[cfg(test)]
 mod tests {
+    use hex_literal::hex;
     use rand::{thread_rng, Rng};
 
     use super::*;
@@ -428,6 +424,73 @@ mod tests {
             hits += 1;
         }
         assert!(hits > 1);
+    }
+
+    #[test]
+    fn from_elligator_kat() {
+        let q = Point::from_bytes(&hex!(
+            "afe7c5982a22425108e129bc9e3c0b1260054e511fad5aa1196a207489654f61"
+        ));
+
+        assert_eq!(
+            Point::from_elligator(&hex!(
+                "08a9742639fef01c831c72965f01eac13daed3097d9e418108079d366346ba27"
+            )),
+            q
+        );
+        assert_eq!(
+            Point::from_elligator(&hex!(
+                "68ca80ac9f3ae0269fe77facd109a0dcf35e71ab5baf374fd96381ef7938d520"
+            )),
+            q
+        );
+        assert_eq!(
+            Point::from_elligator(&hex!(
+                "68ca80ac9f3ae0269fe77facd109a0dcf35e71ab5baf374fd96381ef7938d560"
+            )),
+            q
+        );
+        assert_eq!(
+            Point::from_elligator(&hex!(
+                "68ca80ac9f3ae0269fe77facd109a0dcf35e71ab5baf374fd96381ef7938d5e0"
+            )),
+            q
+        );
+    }
+
+    #[test]
+    fn to_elligator_kat() {
+        let q = Point::from_bytes(&hex!(
+            "afe7c5982a22425108e129bc9e3c0b1260054e511fad5aa1196a207489654f61"
+        ));
+
+        assert_eq!(
+            q.to_elligator(0b0000_0000),
+            Some(hex!(
+                "08a9742639fef01c831c72965f01eac13daed3097d9e418108079d366346ba27"
+            ))
+        );
+
+        assert_eq!(
+            q.to_elligator(0b0000_0001),
+            Some(hex!(
+                "68ca80ac9f3ae0269fe77facd109a0dcf35e71ab5baf374fd96381ef7938d520"
+            ))
+        );
+
+        assert_eq!(
+            q.to_elligator(0b0100_0001),
+            Some(hex!(
+                "68ca80ac9f3ae0269fe77facd109a0dcf35e71ab5baf374fd96381ef7938d560"
+            ))
+        );
+
+        assert_eq!(
+            q.to_elligator(0b1100_0001),
+            Some(hex!(
+                "68ca80ac9f3ae0269fe77facd109a0dcf35e71ab5baf374fd96381ef7938d5e0"
+            ))
+        );
     }
 
     #[test]
