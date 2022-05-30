@@ -364,8 +364,7 @@ impl Mul<&Scalar> for &Point {
         x2.swap(&mut x3, swap);
         z2.swap(&mut z3, swap);
 
-        z2 = z2.invert();
-        &x2 * &z2
+        &x2 * &z2.invert()
     }
 }
 
