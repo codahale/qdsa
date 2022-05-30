@@ -179,13 +179,12 @@ impl Point {
         let r = &(u * &v3) * &(u * &v7).pow_p58();
         let check = v * &r.square();
 
-        let i = &SQRT_M1;
-
         let correct_sign_sqrt = check.ct_eq(u);
-        let flipped_sign_sqrt = check.ct_eq(&(-u));
-        let flipped_sign_sqrt_i = check.ct_eq(&(&(-u) * i));
+        let neg_u = -u;
+        let flipped_sign_sqrt = check.ct_eq(&neg_u);
+        let flipped_sign_sqrt_i = check.ct_eq(&(&neg_u * &SQRT_M1));
 
-        let r = r.select(&(&SQRT_M1 * &r), flipped_sign_sqrt | flipped_sign_sqrt_i);
+        let r = r.select(&(&r * &SQRT_M1), flipped_sign_sqrt | flipped_sign_sqrt_i);
 
         // Choose the nonnegative square root.
         let r = r.select(&-&r, r.is_negative());
