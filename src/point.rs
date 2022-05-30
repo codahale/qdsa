@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
-use subtle::{Choice, ConstantTimeEq};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 use zeroize::Zeroize;
 
 use crate::scalar::Scalar;
@@ -53,10 +53,9 @@ impl Point {
 
         let (eps_is_sq, _eps) = Point::sqrt_ratio_i(&eps, &one);
 
-        let zero = Point::ZERO;
-        let tmp = MONTGOMERY_A.select(&zero, eps_is_sq); /* 0, or A if nonsquare*/
+        let tmp = Point::conditional_select(&MONTGOMERY_A, &Point::ZERO, eps_is_sq); /* 0, or A if nonsquare*/
         let u = &d + &tmp; /* d, or d+A if nonsquare */
-        u.select(&-&u, !eps_is_sq) /* d, or -d-A if nonsquare */
+        Point::conditional_select(&u, &-&u, !eps_is_sq) /* d, or -d-A if nonsquare */
     }
 
     /// Parses the given byte array as a [Point].
@@ -153,11 +152,11 @@ impl Point {
 
         // if !v_is_negative: r = sqrt(-u / 2(u + a)) = root * u
         // if  v_is_negative: r = sqrt(-(u+A) / 2u)   = root * (u + A)
-        let add = u.select(&u_plus_a, v_is_negative);
+        let add = Point::conditional_select(&u, &u_plus_a, v_is_negative);
         let r = &root * &add;
 
         // Both r and -r are valid results. Pick the nonnegative one.
-        let mut rep = r.select(&-&r, r.is_negative()).as_bytes();
+        let mut rep = Point::conditional_select(&r, &-&r, r.is_negative()).as_bytes();
 
         // Use the bottom bit of the mask to obscure the sign bit of the representative.
         rep[31] ^= mask << 7;
@@ -184,10 +183,14 @@ impl Point {
         let flipped_sign_sqrt = check.ct_eq(&neg_u);
         let flipped_sign_sqrt_i = check.ct_eq(&(&neg_u * &SQRT_M1));
 
-        let r = r.select(&(&r * &SQRT_M1), flipped_sign_sqrt | flipped_sign_sqrt_i);
+        let r = Point::conditional_select(
+            &r,
+            &(&r * &SQRT_M1),
+            flipped_sign_sqrt | flipped_sign_sqrt_i,
+        );
 
         // Choose the nonnegative square root.
-        let r = r.select(&-&r, r.is_negative());
+        let r = Point::conditional_select(&r, &-&r, r.is_negative());
 
         let was_nonzero_square = correct_sign_sqrt | flipped_sign_sqrt;
 
@@ -247,24 +250,6 @@ impl Point {
         let (t19, _) = self.pow22501(); // 249..0
         let t20 = t19.pow2k(2); // 251..2
         self * &t20 // 251..2,0
-    }
-
-    #[inline]
-    fn select(&self, b: &Point, swap: Choice) -> Point {
-        let swap = swap.unwrap_u8();
-        let mut ret = *self;
-        fiat_25519_selectznz(&mut ret.0, swap, &self.0, &b.0);
-        ret
-    }
-
-    #[inline]
-    pub(crate) fn swap(&mut self, b: &mut Point, swap: Choice) {
-        let swap = swap.unwrap_u8();
-        let tmp_x = *self;
-        let tmp_y = *b;
-
-        fiat_25519_selectznz(&mut self.0, swap, &tmp_x.0, &tmp_y.0);
-        fiat_25519_selectznz(&mut b.0, swap, &tmp_y.0, &tmp_x.0);
     }
 
     #[inline]
@@ -336,8 +321,8 @@ impl Mul<&Scalar> for &Point {
         for idx in (0..=254).rev() {
             let bit = (((rhs[idx >> 3] >> (idx & 7)) & 1) as u8).into();
             swap ^= bit;
-            x2.swap(&mut x3, swap);
-            z2.swap(&mut z3, swap);
+            Point::conditional_swap(&mut x2, &mut x3, swap);
+            Point::conditional_swap(&mut z2, &mut z3, swap);
             swap = bit;
 
             tmp0 = &x3 - &z3;
@@ -360,8 +345,8 @@ impl Mul<&Scalar> for &Point {
             z2 = &tmp1 * &tmp0;
         }
 
-        x2.swap(&mut x3, swap);
-        z2.swap(&mut z3, swap);
+        Point::conditional_swap(&mut x2, &mut x3, swap);
+        Point::conditional_swap(&mut z2, &mut z3, swap);
 
         &x2 * &z2.invert()
     }
@@ -390,6 +375,14 @@ impl Debug for Point {
 impl Zeroize for Point {
     fn zeroize(&mut self) {
         self.0.zeroize();
+    }
+}
+
+impl ConditionallySelectable for Point {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        let mut ret = *a;
+        fiat_25519_selectznz(&mut ret.0, choice.unwrap_u8(), &a.0, &b.0);
+        ret
     }
 }
 
