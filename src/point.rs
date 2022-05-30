@@ -235,7 +235,7 @@ impl Neg for &Point {
     type Output = Point;
 
     fn neg(self) -> Self::Output {
-        let mut output = *self;
+        let mut output = Point::default();
         fiat_25519_opp(&mut output.0, &self.0);
         output.reduce()
     }
