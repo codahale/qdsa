@@ -384,7 +384,7 @@ impl ConstantTimeEq for Point {
 
 impl Debug for Point {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:02x?}", self.as_bytes())
+        self.0.fmt(f)
     }
 }
 
