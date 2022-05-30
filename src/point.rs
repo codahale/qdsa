@@ -26,11 +26,11 @@ impl Point {
 
     /// The `-1` value of Curve25519.
     pub const MINUS_ONE: Point = Point([
-        2251799813685228,
-        2251799813685247,
-        2251799813685247,
-        2251799813685247,
-        2251799813685247,
+        0x0007_ffff_ffff_ffec,
+        0x0007_ffff_ffff_ffff,
+        0x0007_ffff_ffff_ffff,
+        0x0007_ffff_ffff_ffff,
+        0x0007_ffff_ffff_ffff,
     ]);
 
     /// Decodes the given Elligator2 representative and returns a [Point].
