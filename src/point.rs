@@ -166,8 +166,8 @@ impl Point {
 
     fn square2(&self) -> Point {
         let mut square = self.pow2k(1);
-        for i in 0..5 {
-            square.0[i] *= 2;
+        for v in square.0.iter_mut() {
+            *v *= 2;
         }
         square
     }
