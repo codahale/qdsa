@@ -10,7 +10,9 @@ use crate::scalar::Scalar;
 /// The generator point for Curve25519.
 pub const G: Point = Point([9, 0, 0, 0, 0]);
 
-/// A point on Curve25519. (Technically, only the `x` coordinate of the affine representation.)
+/// A point on Curve25519.
+///
+/// Technically, only the `u` coordinate of Curve25519's Montgomery form.
 #[derive(Copy, Clone, Default)]
 pub struct Point(pub(crate) [u64; 5]);
 
@@ -48,8 +50,8 @@ impl Point {
         -&(&(&(&(&u * &A) * &t3) * &t2) * &t1.square())
     }
 
-    /// Returns the Elligator2 representative, if any, using a random mask value to obscure sign
-    /// bits.
+    /// Returns the Elligator2 representative, if any, using a random `mask` value to obscure
+    /// otherwise constant bits.
     pub fn to_elligator(&self, mask: u8) -> Option<[u8; 32]> {
         let t1 = self; // u
         let t2 = t1 + &A; // u + A
@@ -83,12 +85,13 @@ impl Point {
         ret.reduce()
     }
 
-    /// Parses the given byte array as a [Point].
+    /// Parses the given slice as a [Point].
     ///
     /// Only properly encoded points are parsed.
+    #[inline]
     pub fn from_canonical_bytes(x: &[u8]) -> Option<Point> {
         let x: [u8; 32] = x.try_into().ok()?;
-        (x[31] & 128 == 0).then(|| Point::from_bytes(&x))
+        (x[31] & 0b1000_0000 == 0).then(|| Point::from_bytes(&x))
     }
 
     /// Returns the point as a byte array.
@@ -122,6 +125,7 @@ impl Point {
     }
 
     /// Returns the multiplicative inverse of the point.
+    #[inline]
     pub fn invert(&self) -> Point {
         // The bits of p-2 = 2^255 -19 -2 are 11010111111...11.
         //
