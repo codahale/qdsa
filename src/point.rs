@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 use zeroize::Zeroize;
 
 use crate::scalar::Scalar;
@@ -35,9 +35,10 @@ impl Point {
 
     /// Decodes the given Elligator2 representative and returns a [Point].
     pub fn from_elligator(rep: &[u8; 32]) -> Point {
-        // Unmask sign bit.
+        // Set the top and bottom bits back to zero.
         let mut rep = *rep;
         rep[31] &= 0b0111_1111;
+        rep[0] &= 0b1111_1110;
 
         let r_0 = Point::from_bytes(&rep);
         let one = Point::ONE;
@@ -122,9 +123,6 @@ impl Point {
     /// Returns the Elligator2 representative, if any, using a random mask value to obscure sign
     /// bits.
     pub fn to_elligator(&self, mask: u8) -> Option<[u8; 32]> {
-        // Use the top bit of the mask to pick the sign of v.
-        let v_is_negative = (mask >> 7).into();
-
         let one = Point::ONE;
         let u_plus_a = self + &MONTGOMERY_A;
         let uu_plus_u_a = self * &u_plus_a;
@@ -150,16 +148,24 @@ impl Point {
             return None;
         }
 
+        // Use the top bit of the mask to pick the sign of v.
+        let v_is_negative = Choice::from(mask >> 7);
+
         // if !v_is_negative: r = sqrt(-u / 2(u + a)) = root * u
         // if  v_is_negative: r = sqrt(-(u+A) / 2u)   = root * (u + A)
-        let add = Point::conditional_select(self, &u_plus_a, v_is_negative);
-        let r = &root * &add;
+        let mut r = &root * &Point::conditional_select(self, &u_plus_a, v_is_negative);
 
         // Both r and -r are valid results. Pick the nonnegative one.
-        let mut rep = Point::conditional_select(&r, &-&r, r.is_negative()).as_bytes();
+        r.conditional_negate(r.is_negative());
 
-        // Use the bottom bit of the mask to obscure the sign bit of the representative.
+        // As such, the representative will always have a constant low bit of zero and a constant
+        // high bit of zero. Use the bottom bit of the mask to obscure the constant top bit of the
+        // representative and the second-to-bottom bit of the mask to obscure the constant bottom
+        // bit of the representative. If the mask is randomly generated, this should produce a fully
+        // uniform representative.
+        let mut rep = r.as_bytes();
         rep[31] ^= mask << 7;
+        rep[0] ^= (mask & 0b000_0010) >> 1;
 
         Some(rep)
     }
