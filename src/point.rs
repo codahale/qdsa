@@ -63,9 +63,10 @@ impl Point {
     /// All possible byte arrays are valid points.
     #[inline]
     pub fn from_bytes(x: &[u8; 32]) -> Point {
-        let mut ret = Point::default();
         let mut x = *x;
         x[31] &= 127;
+
+        let mut ret = Point::default();
         fiat_25519_from_bytes(&mut ret.0, &x);
         ret.reduce()
     }
@@ -309,14 +310,13 @@ impl Mul<&Scalar> for &Point {
     // Montgomery ladder computing q*d via repeated differential additions and constant-time
     // conditional swaps.
     fn mul(self, rhs: &Scalar) -> Self::Output {
+        let rhs = rhs.as_bytes();
+
         let mut x2 = Point::ONE;
         let mut x3 = *self;
         let mut z3 = Point::ONE;
         let mut z2 = Point::ZERO;
-        let mut tmp0: Point;
-        let mut tmp1: Point;
         let mut swap = Choice::from(0);
-        let rhs = rhs.as_bytes();
 
         for idx in (0..=254).rev() {
             let bit = (((rhs[idx >> 3] >> (idx & 7)) & 1) as u8).into();
@@ -325,22 +325,22 @@ impl Mul<&Scalar> for &Point {
             Point::conditional_swap(&mut z2, &mut z3, swap);
             swap = bit;
 
-            tmp0 = &x3 - &z3;
-            tmp1 = &x2 - &z2;
+            let tmp0 = &x3 - &z3;
+            let tmp1 = &x2 - &z2;
             x2 = &x2 + &z2;
             z2 = &x3 + &z3;
             z3 = &tmp0 * &x2;
             z2 = &z2 * &tmp1;
-            tmp0 = tmp1.square();
-            tmp1 = x2.square();
+            let tmp0 = tmp1.square();
+            let tmp1 = x2.square();
             x3 = &z3 + &z2;
             z2 = &z3 - &z2;
             x2 = &tmp1 * &tmp0;
-            tmp1 = &tmp1 - &tmp0;
+            let tmp1 = &tmp1 - &tmp0;
             z2 = z2.square();
             z3 = tmp1.mul121666();
             x3 = x3.square();
-            tmp0 = &tmp0 + &z3;
+            let tmp0 = &tmp0 + &z3;
             z3 = self * &z2;
             z2 = &tmp1 * &tmp0;
         }
