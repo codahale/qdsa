@@ -37,7 +37,7 @@ impl Point {
     pub fn from_elligator(rep: &[u8; 32]) -> Point {
         // Unmask sign bit.
         let mut rep = *rep;
-        rep[31] &= 0b01111111;
+        rep[31] &= 0b0111_1111;
 
         let r_0 = Point::from_bytes(&rep);
         let one = Point::ONE;
@@ -64,7 +64,7 @@ impl Point {
     #[inline]
     pub fn from_bytes(x: &[u8; 32]) -> Point {
         let mut x = *x;
-        x[31] &= 127;
+        x[31] &= 0b0111_1111;
 
         let mut ret = Point::default();
         fiat_25519_from_bytes(&mut ret.0, &x);
@@ -126,19 +126,18 @@ impl Point {
         let v_is_negative = (mask >> 7).into();
 
         let one = Point::ONE;
-        let u = Point::from_bytes(&self.as_bytes());
-        let u_plus_a = &u + &MONTGOMERY_A;
-        let uu_plus_u_a = &u * &u_plus_a;
+        let u_plus_a = self + &MONTGOMERY_A;
+        let uu_plus_u_a = self * &u_plus_a;
 
         // Condition: u is on the curve
-        let vv = &(&u * &uu_plus_u_a) + &u;
-        let (u_is_on_curve, _v) = Point::sqrt_ratio_i(&vv, &one);
+        let vv = &(self * &uu_plus_u_a) + self;
+        let (u_is_on_curve, _) = Point::sqrt_ratio_i(&vv, &one);
         if (!u_is_on_curve).into() {
             return None;
         }
 
         // Condition: u != -A
-        if u == MONTGOMERY_A_NEG {
+        if self == &MONTGOMERY_A_NEG {
             return None;
         }
 
@@ -153,7 +152,7 @@ impl Point {
 
         // if !v_is_negative: r = sqrt(-u / 2(u + a)) = root * u
         // if  v_is_negative: r = sqrt(-(u+A) / 2u)   = root * (u + A)
-        let add = Point::conditional_select(&u, &u_plus_a, v_is_negative);
+        let add = Point::conditional_select(self, &u_plus_a, v_is_negative);
         let r = &root * &add;
 
         // Both r and -r are valid results. Pick the nonnegative one.
