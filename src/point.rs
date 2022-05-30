@@ -48,6 +48,28 @@ impl Point {
         -&(&(&(&(&u * &A) * &t3) * &t2) * &t1.square())
     }
 
+    /// Returns the Elligator2 representative, if any, using a random mask value to obscure sign
+    /// bits.
+    pub fn to_elligator(&self, mask: u8) -> Option<[u8; 32]> {
+        let t1 = self; // u
+        let t2 = t1 + &A; // u + A
+        let (t3, is_square) = (&(t1 * &t2) * &MINUS_TWO).inv_sqrt(); // sqrt(-1 / non_square * u * (u+A))
+
+        // The only variable time bit. This ultimately reveals how many tries it took us to find
+        // a representable key. This does not affect security as long as we try keys at random.
+        if is_square.into() {
+            // multiply by u if v is positive, multiply by u+A otherwise
+            let t3 = &Point::conditional_select(t1, &t2, (mask & 1).into()) * &t3;
+            let t3 = Point::conditional_select(&t3, &-&t3, (&t3 * &TWO).is_odd());
+
+            let mut rep = t3.as_bytes();
+            rep[31] |= mask & 0b1100_0000; // use the top two bits of the mask
+            Some(rep)
+        } else {
+            None
+        }
+    }
+
     /// Parses the given byte array as a [Point].
     ///
     /// All possible byte arrays are valid points.
@@ -144,28 +166,6 @@ impl Point {
             Point::conditional_select(&(&t0 * &SQRT_M1), &t0, !(m1 | ms)),
             p1 | m1 | z0,
         )
-    }
-
-    /// Returns the Elligator2 representative, if any, using a random mask value to obscure sign
-    /// bits.
-    pub fn to_elligator(&self, mask: u8) -> Option<[u8; 32]> {
-        let t1 = self; // u
-        let t2 = t1 + &A; // u + A
-        let (t3, is_square) = (&(t1 * &t2) * &MINUS_TWO).inv_sqrt(); // sqrt(-1 / non_square * u * (u+A))
-
-        // The only variable time bit. This ultimately reveals how many tries it took us to find
-        // a representable key. This does not affect security as long as we try keys at random.
-        if is_square.into() {
-            // multiply by u if v is positive, multiply by u+A otherwise
-            let t3 = &Point::conditional_select(t1, &t2, (mask & 1).into()) * &t3;
-            let t3 = Point::conditional_select(&t3, &-&t3, (&t3 * &TWO).is_odd());
-
-            let mut rep = t3.as_bytes();
-            rep[31] |= mask & 0b1100_0000; // use the top two bits of the mask
-            Some(rep)
-        } else {
-            None
-        }
     }
 
     #[inline]
