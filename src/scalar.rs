@@ -18,9 +18,9 @@ impl Scalar {
     #[inline]
     pub fn clamp(x: &[u8; 32]) -> Scalar {
         let mut x = *x;
-        x[0] &= 248;
-        x[31] &= 127;
-        x[31] |= 64;
+        x[0] &= 0b1111_1000;
+        x[31] &= 0b0111_1111;
+        x[31] |= 0b0100_0000;
 
         Scalar::from_bits(&x)
     }
