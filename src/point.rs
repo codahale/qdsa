@@ -133,7 +133,7 @@ impl Point {
         // Condition: u is on the curve
         let vv = &(&u * &uu_plus_u_a) + &u;
         let (u_is_on_curve, _v) = Point::sqrt_ratio_i(&vv, &one);
-        if !bool::from(u_is_on_curve) {
+        if (!u_is_on_curve).into() {
             return None;
         }
 
@@ -147,7 +147,7 @@ impl Point {
         // We compute root = sqrt(-1/2u(u+A)) to speed up the calculation.
         // This is a square if and only if -2u(u+A) is.
         let (is_square, root) = Point::sqrt_ratio_i(&Point::MINUS_ONE, &uu2_plus_u_a2);
-        if !bool::from(is_square | root.is_zero()) {
+        if (!(is_square | root.is_zero())).into() {
             return None;
         }
 
