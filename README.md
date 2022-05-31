@@ -4,6 +4,7 @@ A pure-Rust implementation of [qDSA](https://joostrenes.nl/publications/qdsa-epr
 Curve25519.
 Includes X25519 key agreement, Elligator2 encoding and decoding, and a designated-verifier adaptation of qDSA.
 
+* Verified `GF(2^255-19)` operations provided by [fiat-crypto](https://docs.rs/fiat-crypto).
 * qDSA/SHAKE128 compatibility tested with the [reference C version](https://joostrenes.nl/software/cref-g1.tar.gz) by
   Joost Renes.
 * X25519 compatibility tested with [RFC 7748](https://datatracker.ietf.org/doc/html/rfc7748) and
