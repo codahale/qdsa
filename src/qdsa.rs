@@ -174,6 +174,37 @@ mod tests {
         );
         let sig_a = sign(&pk, &sk, &nonce, &m, shake128);
         assert_eq!(sig, sig_a);
+        assert!(verify(&pk, &sig, &m, shake128));
+    }
+
+    #[test]
+    fn negative_proof_scalar() {
+        let pk = hex!("a8bc0c539775462b2f21834ccddcb3c5d452b6702a85818bba5da1f0c2a90a59");
+        let m = hex!("4f2b8a8027a8542bda6f");
+        let mut sig = hex!(
+            "8137f6865c2a5c74feb9f5a64ae06601ed0878d9bf6be8b8297221034e7bba64"
+            "5a04f337ea101a11352ebb4c377e436b9502520a5e8056f5443ab15d2c25d10b"
+        );
+
+        let s = Scalar::from_bytes(&sig[32..].try_into().expect("invalid scalar len"));
+        sig[32..].copy_from_slice(&(-&s).as_bytes());
+
+        assert!(!verify(&pk, &sig, &m, shake128));
+    }
+
+    #[test]
+    fn negative_commitment_point() {
+        let pk = hex!("a8bc0c539775462b2f21834ccddcb3c5d452b6702a85818bba5da1f0c2a90a59");
+        let m = hex!("4f2b8a8027a8542bda6f");
+        let mut sig = hex!(
+            "8137f6865c2a5c74feb9f5a64ae06601ed0878d9bf6be8b8297221034e7bba64"
+            "5a04f337ea101a11352ebb4c377e436b9502520a5e8056f5443ab15d2c25d10b"
+        );
+
+        let i = Point::from_bytes(&sig[..32].try_into().expect("invalid point len"));
+        sig[..32].copy_from_slice(&(-&i).as_bytes());
+
+        assert!(!verify(&pk, &sig, &m, shake128));
     }
 
     #[test]
