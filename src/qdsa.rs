@@ -208,6 +208,31 @@ mod tests {
     }
 
     #[test]
+    fn sig_bit_flip() {
+        let pk = hex!("a8bc0c539775462b2f21834ccddcb3c5d452b6702a85818bba5da1f0c2a90a59");
+        let m = hex!("4f2b8a8027a8542bda6f");
+        let sig = hex!(
+            "8137f6865c2a5c74feb9f5a64ae06601ed0878d9bf6be8b8297221034e7bba64"
+            "5a04f337ea101a11352ebb4c377e436b9502520a5e8056f5443ab15d2c25d10b"
+        );
+        assert!(verify(&pk, &sig, &m, shake128));
+
+        for i in 0..sig.len() {
+            for j in 0u8..8 {
+                let mut sig_p = sig;
+                sig_p[i] ^= 1 << j;
+
+                assert!(
+                    !verify(&pk, &sig_p, &m, shake128),
+                    "bit flip at byte {}, bit {} produced a valid message",
+                    i,
+                    j
+                );
+            }
+        }
+    }
+
+    #[test]
     fn qdsa_round_trip() {
         for _ in 0..1000 {
             let sk_a = thread_rng().gen();
