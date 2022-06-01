@@ -164,6 +164,7 @@ mod tests {
 
     #[test]
     fn sign_kat() {
+        // generated with https://joostrenes.nl/software/cref-g1.tar.gz
         let pk = hex!("a8bc0c539775462b2f21834ccddcb3c5d452b6702a85818bba5da1f0c2a90a59");
         let nonce = hex!("221e3ec71706d2568585249a6f6ef7aa8b3ddcf63ffe20560875e2de07668cd3");
         let sk = hex!("a012a86000174e1c3ff635307874bfbc9ae67371f78186ceb58b7df68d4bd25e");

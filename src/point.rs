@@ -422,6 +422,9 @@ mod tests {
 
     #[test]
     fn from_elligator_kat() {
+        // generated with Monocypher 3.1.3
+        // https://github.com/LoupVaillant/Monocypher/releases/tag/3.1.3
+
         let q = Point::from_bytes(&hex!(
             "afe7c5982a22425108e129bc9e3c0b1260054e511fad5aa1196a207489654f61"
         ));
@@ -454,6 +457,9 @@ mod tests {
 
     #[test]
     fn to_elligator_kat() {
+        // generated with Monocypher 3.1.3
+        // https://github.com/LoupVaillant/Monocypher/releases/tag/3.1.3
+
         let q = Point::from_bytes(&hex!(
             "afe7c5982a22425108e129bc9e3c0b1260054e511fad5aa1196a207489654f61"
         ));
