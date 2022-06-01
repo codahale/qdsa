@@ -70,7 +70,7 @@ pub fn sign_challenge(d: &Scalar, k: &Scalar, r: &Scalar) -> Scalar {
 ///
 /// Use [dv_verify_challenge] to verify `i` and `x`.
 pub fn dv_sign_challenge(d_s: &Scalar, k: &Scalar, q_v: &Point, r: &Scalar) -> Point {
-    q_v * &(k - &(r * d_s)).abs()
+    q_v * &sign_challenge(d_s, k, r)
 }
 
 /// Verifies a counterfactual challenge, given a commitment point and proof scalar.
