@@ -502,4 +502,15 @@ mod tests {
         b[31] |= 128;
         assert!(Point::from_canonical_bytes(&b).is_none());
     }
+
+    #[test]
+    fn zeroization() {
+        let mut q = Point::from_elligator(&thread_rng().gen());
+
+        assert_ne!(q, Point::ZERO);
+
+        q.zeroize();
+
+        assert_eq!(q, Point::ZERO);
+    }
 }
