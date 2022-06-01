@@ -40,22 +40,26 @@ impl Scalar {
         }
 
         let mask = (1u64 << 52) - 1;
-        let mut lo = Scalar::ZERO;
-        let mut hi = Scalar::ZERO;
 
-        lo.0[0] = words[0] & mask;
-        lo.0[1] = ((words[0] >> 52) | (words[1] << 12)) & mask;
-        lo.0[2] = ((words[1] >> 40) | (words[2] << 24)) & mask;
-        lo.0[3] = ((words[2] >> 28) | (words[3] << 36)) & mask;
-        lo.0[4] = ((words[3] >> 16) | (words[4] << 48)) & mask;
-        hi.0[0] = (words[4] >> 4) & mask;
-        hi.0[1] = ((words[4] >> 56) | (words[5] << 8)) & mask;
-        hi.0[2] = ((words[5] >> 44) | (words[6] << 20)) & mask;
-        hi.0[3] = ((words[6] >> 32) | (words[7] << 32)) & mask;
-        hi.0[4] = words[7] >> 20;
+        // (lo * R) / R = lo
+        let lo = Scalar([
+            words[0] & mask,
+            ((words[0] >> 52) | (words[1] << 12)) & mask,
+            ((words[1] >> 40) | (words[2] << 24)) & mask,
+            ((words[2] >> 28) | (words[3] << 36)) & mask,
+            ((words[3] >> 16) | (words[4] << 48)) & mask,
+        ])
+        .montgomery_mul(&R);
 
-        lo = lo.montgomery_mul(&R); // (lo * R) / R = lo
-        hi = hi.montgomery_mul(&RR); // (hi * R^2) / R = hi * R
+        // (hi * R^2) / R = hi * R
+        let hi = Scalar([
+            (words[4] >> 4) & mask,
+            ((words[4] >> 56) | (words[5] << 8)) & mask,
+            ((words[5] >> 44) | (words[6] << 20)) & mask,
+            ((words[6] >> 32) | (words[7] << 32)) & mask,
+            words[7] >> 20,
+        ])
+        .montgomery_mul(&RR);
 
         &hi + &lo
     }
@@ -70,55 +74,52 @@ impl Scalar {
 
         let mask = (1u64 << 52) - 1;
         let top_mask = (1u64 << 48) - 1;
-        let mut s = Scalar::ZERO;
 
-        s.0[0] = words[0] & mask;
-        s.0[1] = ((words[0] >> 52) | (words[1] << 12)) & mask;
-        s.0[2] = ((words[1] >> 40) | (words[2] << 24)) & mask;
-        s.0[3] = ((words[2] >> 28) | (words[3] << 36)) & mask;
-        s.0[4] = (words[3] >> 16) & top_mask;
-
-        s
+        Scalar([
+            words[0] & mask,
+            ((words[0] >> 52) | (words[1] << 12)) & mask,
+            ((words[1] >> 40) | (words[2] << 24)) & mask,
+            ((words[2] >> 28) | (words[3] << 36)) & mask,
+            (words[3] >> 16) & top_mask,
+        ])
     }
 
     /// Returns the scalar as a byte array.
     pub fn as_bytes(&self) -> [u8; 32] {
-        let mut s = [0u8; 32];
-
-        s[0] = self.0[0] as u8;
-        s[1] = (self.0[0] >> 8) as u8;
-        s[2] = (self.0[0] >> 16) as u8;
-        s[3] = (self.0[0] >> 24) as u8;
-        s[4] = (self.0[0] >> 32) as u8;
-        s[5] = (self.0[0] >> 40) as u8;
-        s[6] = ((self.0[0] >> 48) | (self.0[1] << 4)) as u8;
-        s[7] = (self.0[1] >> 4) as u8;
-        s[8] = (self.0[1] >> 12) as u8;
-        s[9] = (self.0[1] >> 20) as u8;
-        s[10] = (self.0[1] >> 28) as u8;
-        s[11] = (self.0[1] >> 36) as u8;
-        s[12] = (self.0[1] >> 44) as u8;
-        s[13] = self.0[2] as u8;
-        s[14] = (self.0[2] >> 8) as u8;
-        s[15] = (self.0[2] >> 16) as u8;
-        s[16] = (self.0[2] >> 24) as u8;
-        s[17] = (self.0[2] >> 32) as u8;
-        s[18] = (self.0[2] >> 40) as u8;
-        s[19] = ((self.0[2] >> 48) | (self.0[3] << 4)) as u8;
-        s[20] = (self.0[3] >> 4) as u8;
-        s[21] = (self.0[3] >> 12) as u8;
-        s[22] = (self.0[3] >> 20) as u8;
-        s[23] = (self.0[3] >> 28) as u8;
-        s[24] = (self.0[3] >> 36) as u8;
-        s[25] = (self.0[3] >> 44) as u8;
-        s[26] = self.0[4] as u8;
-        s[27] = (self.0[4] >> 8) as u8;
-        s[28] = (self.0[4] >> 16) as u8;
-        s[29] = (self.0[4] >> 24) as u8;
-        s[30] = (self.0[4] >> 32) as u8;
-        s[31] = (self.0[4] >> 40) as u8;
-
-        s
+        [
+            self.0[0] as u8,
+            (self.0[0] >> 8) as u8,
+            (self.0[0] >> 16) as u8,
+            (self.0[0] >> 24) as u8,
+            (self.0[0] >> 32) as u8,
+            (self.0[0] >> 40) as u8,
+            ((self.0[0] >> 48) | (self.0[1] << 4)) as u8,
+            (self.0[1] >> 4) as u8,
+            (self.0[1] >> 12) as u8,
+            (self.0[1] >> 20) as u8,
+            (self.0[1] >> 28) as u8,
+            (self.0[1] >> 36) as u8,
+            (self.0[1] >> 44) as u8,
+            self.0[2] as u8,
+            (self.0[2] >> 8) as u8,
+            (self.0[2] >> 16) as u8,
+            (self.0[2] >> 24) as u8,
+            (self.0[2] >> 32) as u8,
+            (self.0[2] >> 40) as u8,
+            ((self.0[2] >> 48) | (self.0[3] << 4)) as u8,
+            (self.0[3] >> 4) as u8,
+            (self.0[3] >> 12) as u8,
+            (self.0[3] >> 20) as u8,
+            (self.0[3] >> 28) as u8,
+            (self.0[3] >> 36) as u8,
+            (self.0[3] >> 44) as u8,
+            self.0[4] as u8,
+            (self.0[4] >> 8) as u8,
+            (self.0[4] >> 16) as u8,
+            (self.0[4] >> 24) as u8,
+            (self.0[4] >> 32) as u8,
+            (self.0[4] >> 40) as u8,
+        ]
     }
 
     /// Returns `true` iff the scalar is greater than zero.
@@ -418,8 +419,9 @@ const L: Scalar = Scalar([
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::{thread_rng, Rng};
+
+    use super::*;
 
     #[test]
     fn default_is_zero() {
