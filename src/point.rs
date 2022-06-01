@@ -1,4 +1,3 @@
-use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Mul, Neg, Sub};
 
 use fiat_crypto::curve25519_64::*;
@@ -13,7 +12,7 @@ pub const G: Point = Point([9, 0, 0, 0, 0]);
 /// A point on Curve25519.
 ///
 /// Technically, only the `u` coordinate of Curve25519's Montgomery form.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Point(pub(crate) [u64; 5]);
 
 impl Point {
@@ -326,12 +325,6 @@ impl PartialEq for Point {
 impl ConstantTimeEq for Point {
     fn ct_eq(&self, other: &Point) -> Choice {
         self.as_bytes().ct_eq(&other.as_bytes())
-    }
-}
-
-impl Debug for Point {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
     }
 }
 
