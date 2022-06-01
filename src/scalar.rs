@@ -415,3 +415,25 @@ const L: Scalar = Scalar([
     0x0000_0000_0000_0000,
     0x0000_1000_0000_0000,
 ]);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::{thread_rng, Rng};
+
+    #[test]
+    fn default_is_zero() {
+        assert_eq!(Scalar::ZERO, Scalar::default());
+    }
+
+    #[test]
+    fn zeroization() {
+        let mut d = Scalar::clamp(&thread_rng().gen());
+
+        assert_ne!(d, Scalar::ZERO);
+
+        d.zeroize();
+
+        assert_eq!(d, Scalar::ZERO);
+    }
+}
