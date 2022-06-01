@@ -4,7 +4,7 @@ use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
 /// A scalar value of Curve25519.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Scalar([u64; 5]);
 
 impl Scalar {
