@@ -1,6 +1,6 @@
 [package]
 name = "qdsa"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 license = "BSD-3-Clause"
 description = "The qDSA digital signature algorithm plus X25519 and Elligator2."
