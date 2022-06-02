@@ -12,8 +12,7 @@ pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
 /// Computes the public key for secret key `sk`.
 pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
     let d = Scalar::clamp(sk);
-    let q = &G * &d;
-    q.as_bytes()
+    (&G * &d).as_bytes()
 }
 
 #[cfg(test)]
