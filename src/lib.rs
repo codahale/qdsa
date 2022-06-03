@@ -2,7 +2,7 @@
 //! Quotient DSA) over Curve25519. Includes X25519 key agreement, Elligator2 encoding and decoding,
 //! and a designated-verifier adaptation of qDSA.
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
+#![warn(missing_docs, clippy::missing_const_for_fn)]
 
 pub use crate::qdsa::{sign, verify};
 pub use crate::x25519::{public_key, x25519};

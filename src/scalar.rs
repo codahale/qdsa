@@ -85,7 +85,7 @@ impl Scalar {
     }
 
     /// Returns the scalar as a byte array.
-    pub fn as_bytes(&self) -> [u8; 32] {
+    pub const fn as_bytes(&self) -> [u8; 32] {
         [
             self.0[0] as u8,
             (self.0[0] >> 8) as u8,
@@ -124,7 +124,7 @@ impl Scalar {
 
     /// Returns `true` iff the scalar is greater than zero.
     #[inline]
-    pub fn is_pos(&self) -> bool {
+    pub const fn is_pos(&self) -> bool {
         self.0[0] & 1 == 0
     }
 
@@ -206,7 +206,7 @@ impl Scalar {
 
     /// Compute `a^2`
     #[inline(always)]
-    fn square_internal(&self) -> [u128; 9] {
+    const fn square_internal(&self) -> [u128; 9] {
         let a = self;
         let aa = [a.0[0] * 2, a.0[1] * 2, a.0[2] * 2, a.0[3] * 2];
 
@@ -226,7 +226,7 @@ impl Scalar {
     /// Compute `a * b`
     #[inline(always)]
     #[rustfmt::skip]
-    fn mul_internal(&self, b: &Scalar) -> [u128; 9] {
+    const fn mul_internal(&self, b: &Scalar) -> [u128; 9] {
         let a = self;
         [
             m(a.0[0], b.0[0]),
@@ -347,7 +347,7 @@ impl Zeroize for Scalar {
 
 /// u64 * u64 = u128 multiply helper
 #[inline(always)]
-fn m(x: u64, y: u64) -> u128 {
+const fn m(x: u64, y: u64) -> u128 {
     (x as u128) * (y as u128)
 }
 
@@ -355,13 +355,13 @@ fn m(x: u64, y: u64) -> u128 {
 #[inline(always)]
 fn montgomery_reduce(limbs: &[u128; 9]) -> Scalar {
     #[inline(always)]
-    fn part1(sum: u128) -> (u128, u64) {
+    const fn part1(sum: u128) -> (u128, u64) {
         let p = (sum as u64).wrapping_mul(LFACTOR) & ((1u64 << 52) - 1);
         ((sum + m(p, L.0[0])) >> 52, p)
     }
 
     #[inline(always)]
-    fn part2(sum: u128) -> (u128, u64) {
+    const fn part2(sum: u128) -> (u128, u64) {
         let w = (sum as u64) & ((1u64 << 52) - 1);
         (sum >> 52, w)
     }
