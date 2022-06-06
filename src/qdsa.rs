@@ -199,6 +199,8 @@ mod tests {
             "5a04f337ea101a11352ebb4c377e436b9502520a5e8056f5443ab15d2c25d10b"
         );
 
+        assert!(verify(&pk, &sig, &m, shake128));
+
         let s = Scalar::from_bytes(&sig[32..].try_into().expect("invalid scalar len"));
         sig[32..].copy_from_slice(&(-&s).as_bytes());
 
@@ -206,7 +208,7 @@ mod tests {
     }
 
     #[test]
-    fn negate_commitment_point() {
+    fn modified_commitment_point() {
         let pk = hex!("a8bc0c539775462b2f21834ccddcb3c5d452b6702a85818bba5da1f0c2a90a59");
         let m = hex!("4f2b8a8027a8542bda6f");
         let mut sig = hex!(
@@ -214,8 +216,10 @@ mod tests {
             "5a04f337ea101a11352ebb4c377e436b9502520a5e8056f5443ab15d2c25d10b"
         );
 
-        let i = Point::from_bytes(&sig[..32].try_into().expect("invalid point len"));
-        sig[..32].copy_from_slice(&(-&i).as_bytes());
+        assert!(verify(&pk, &sig, &m, shake128));
+
+        // flip the unused bit
+        sig[31] ^= 0b1000_0000;
 
         assert!(!verify(&pk, &sig, &m, shake128));
     }
