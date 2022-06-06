@@ -35,6 +35,8 @@ impl Point {
     ]);
 
     /// Decodes the given Elligator2 representative and returns a [Point].
+    ///
+    /// *N.B.:* The top two bits of the representative
     pub fn from_elligator(rep: &[u8; 32]) -> Point {
         // Zero the top two bits.
         let mut rep = *rep;
@@ -50,7 +52,14 @@ impl Point {
     }
 
     /// Returns the Elligator2 representative, if any, using a random `mask` value to obscure
-    /// otherwise constant bits.
+    /// otherwise constant bits. The bottom bit of `mask` is used to select between positive and
+    /// negative values of `v`; the top two bits of `mask` are used to mask the two top bits of
+    /// the representative (which would otherwise be zero).
+    ///
+    /// *N.B.:* Elligator2 representatives are malleable due to the masking required to make them
+    /// fully uniform bitstrings. An attacker can toggle the top two bits of the representative
+    /// without changing the point to which to representative is mapped, which may allow them to
+    /// distinguish between uniform bitstrings and Elligator2 representatives.
     pub fn to_elligator(&self, mask: u8) -> Option<[u8; 32]> {
         let t1 = self; // u
         let t2 = t1 + &A; // u + A
@@ -86,7 +95,7 @@ impl Point {
 
     /// Parses the given slice as a [Point].
     ///
-    /// Only properly encoded points are parsed.
+    /// Only properly encoded points (i.e. those with an unset high bit) are parsed.
     #[inline]
     pub fn from_canonical_bytes(x: &[u8]) -> Option<Point> {
         let x: [u8; 32] = x.try_into().ok()?;
