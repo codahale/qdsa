@@ -1,5 +1,6 @@
 use crate::point::{Point, G};
 use crate::scalar::Scalar;
+use subtle::ConditionallyNegatable;
 
 /// Signs a message with the qDSA algorithm.
 ///
@@ -61,7 +62,10 @@ pub fn verify(
 /// Given the signer challenge `r` (e.g. `H(I || Q || m)`), returns the proof scalar `s`.
 #[must_use]
 pub fn sign_challenge(d: &Scalar, k: &Scalar, r: &Scalar) -> Scalar {
-    (k - &(r * d)).abs()
+    let mut c = k - &(r * d);
+    let zero_lsb = c.is_zero_lsb();
+    Scalar::conditional_negate(&mut c, !zero_lsb);
+    c
 }
 
 /// Given a challenge (e.g. `H(I || Q_S || m)`), returns the designated proof point `x` using the
@@ -87,7 +91,7 @@ pub fn dv_sign_challenge(d_s: &Scalar, k: &Scalar, q_v: &Point, r: &Scalar) -> P
 pub fn verify_challenge(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool {
     // Disallow proof scalars with non-zero LSBs. We never produce proof scalars with non-zero LSBs,
     // and allowing those values here allows for malleable signatures.
-    if !s.is_zero_lsb() {
+    if (!s.is_zero_lsb()).into() {
         return false;
     }
 

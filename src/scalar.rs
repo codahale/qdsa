@@ -1,6 +1,6 @@
 use std::ops::{Add, Mul, Neg, Sub};
 
-use subtle::{Choice, ConstantTimeEq};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 use zeroize::Zeroize;
 
 /// A scalar value of Curve25519.
@@ -124,18 +124,8 @@ impl Scalar {
 
     /// Returns `true` if the scalar's LSB is zero.
     #[inline]
-    pub(crate) const fn is_zero_lsb(&self) -> bool {
-        self.0[0] & 1 == 0
-    }
-
-    /// Returns `self` if the scalar's LSB is zero; otherwise returns `-self`.
-    #[inline]
-    pub(crate) fn abs(&self) -> Scalar {
-        if self.is_zero_lsb() {
-            *self
-        } else {
-            -self
-        }
+    pub(crate) fn is_zero_lsb(&self) -> Choice {
+        (1 - (self.0[0] & 1) as u8).into()
     }
 
     /// Returns the multiplicative inverse of the scalar.
@@ -328,6 +318,18 @@ impl Neg for &Scalar {
 impl ConstantTimeEq for Scalar {
     fn ct_eq(&self, other: &Self) -> Choice {
         self.0.ct_eq(&other.0)
+    }
+}
+
+impl ConditionallySelectable for Scalar {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        Scalar([
+            u64::conditional_select(&a.0[0], &b.0[0], choice),
+            u64::conditional_select(&a.0[1], &b.0[1], choice),
+            u64::conditional_select(&a.0[2], &b.0[2], choice),
+            u64::conditional_select(&a.0[3], &b.0[3], choice),
+            u64::conditional_select(&a.0[4], &b.0[4], choice),
+        ])
     }
 }
 
