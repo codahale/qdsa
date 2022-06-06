@@ -122,16 +122,16 @@ impl Scalar {
         ]
     }
 
-    /// Returns `true` iff the scalar is greater than zero.
+    /// Returns `true` if the scalar's LSB is zero.
     #[inline]
-    pub const fn is_pos(&self) -> bool {
+    pub(crate) const fn is_zero_lsb(&self) -> bool {
         self.0[0] & 1 == 0
     }
 
-    /// Returns the absolute value of the scalar.
+    /// Returns `self` if the scalar's LSB is zero; otherwise returns `-self`.
     #[inline]
-    pub fn abs(&self) -> Scalar {
-        if self.is_pos() {
+    pub(crate) fn abs(&self) -> Scalar {
+        if self.is_zero_lsb() {
             *self
         } else {
             -self

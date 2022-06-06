@@ -80,9 +80,9 @@ pub fn dv_sign_challenge(d_s: &Scalar, k: &Scalar, q_v: &Point, r: &Scalar) -> P
 /// * `i`: the commitment point from the signature
 /// * `s`: the proof scalar from the signature
 pub fn verify_challenge(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool {
-    // Disallow negative proof scalars. We never produce negative proof scalars, and allowing
-    // negative values here allows for malleable signatures.
-    if !s.is_pos() {
+    // Disallow proof scalars with non-zero LSBs. We never produce proof scalars with non-zero LSBs,
+    // and allowing those values here allows for malleable signatures.
+    if !s.is_zero_lsb() {
         return false;
     }
 
@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn negative_proof_scalar() {
+    fn negate_proof_scalar() {
         let pk = hex!("a8bc0c539775462b2f21834ccddcb3c5d452b6702a85818bba5da1f0c2a90a59");
         let m = hex!("4f2b8a8027a8542bda6f");
         let mut sig = hex!(
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn negative_commitment_point() {
+    fn negate_commitment_point() {
         let pk = hex!("a8bc0c539775462b2f21834ccddcb3c5d452b6702a85818bba5da1f0c2a90a59");
         let m = hex!("4f2b8a8027a8542bda6f");
         let mut sig = hex!(
