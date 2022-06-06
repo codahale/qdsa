@@ -125,7 +125,7 @@ impl Scalar {
     /// Returns `true` if the scalar's LSB is zero.
     #[inline]
     pub(crate) fn is_zero_lsb(&self) -> Choice {
-        (1 - (self.0[0] & 1) as u8).into()
+        !Choice::from(self.0[0] as u8 & 1)
     }
 
     /// Returns the multiplicative inverse of the scalar.
