@@ -16,6 +16,7 @@ use crate::scalar::Scalar;
 /// * `nonce`: a pseudorandom secret value (i.e. `d'` in the literature)
 /// * `m`: the message to be signed
 /// * `hash`: a structured hash algorithm (e.g. TupleHash)
+#[must_use]
 pub fn sign(
     pk: &[u8; 32],
     sk: &[u8; 32],
@@ -42,6 +43,7 @@ pub fn sign(
 /// * `sig`: the signature produced by [sign]
 /// * `m`: the message to be signed
 /// * `hash`: a structured hash algorithm (e.g. TupleHash)
+#[must_use]
 pub fn verify(
     pk: &[u8; 32],
     sig: &[u8; 64],
@@ -57,6 +59,7 @@ pub fn verify(
 }
 
 /// Given the signer challenge `r` (e.g. `H(I || Q || m)`), returns the proof scalar `s`.
+#[must_use]
 pub fn sign_challenge(d: &Scalar, k: &Scalar, r: &Scalar) -> Scalar {
     (k - &(r * d)).abs()
 }
@@ -69,6 +72,7 @@ pub fn sign_challenge(d: &Scalar, k: &Scalar, r: &Scalar) -> Scalar {
 /// designated verifier scheme for Schnorr signatures to Kummer varieties.
 ///
 /// Use [dv_verify_challenge] to verify `i` and `x`.
+#[must_use]
 pub fn dv_sign_challenge(d_s: &Scalar, k: &Scalar, q_v: &Point, r: &Scalar) -> Point {
     q_v * &sign_challenge(d_s, k, r)
 }
@@ -79,6 +83,7 @@ pub fn dv_sign_challenge(d_s: &Scalar, k: &Scalar, q_v: &Point, r: &Scalar) -> P
 /// * `r_p`: the re-calculated challenge e.g. `r' = H(I' || Q' || m')`
 /// * `i`: the commitment point from the signature
 /// * `s`: the proof scalar from the signature
+#[must_use]
 pub fn verify_challenge(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool {
     // Disallow proof scalars with non-zero LSBs. We never produce proof scalars with non-zero LSBs,
     // and allowing those values here allows for malleable signatures.
@@ -101,6 +106,7 @@ pub fn verify_challenge(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool 
 /// * `challenge`: the re-calculated challenge e.g. `H(I || Q_S || m)`
 /// * `i`: the commitment point from the signature
 /// * `x`: the designatued proof point from the signature
+#[must_use]
 pub fn dv_verify_challenge(q_s: &Point, d_v: &Scalar, r_p: &Scalar, i: &Point, x: &Point) -> bool {
     let t0 = x * &d_v.invert(); // t0 = [1/d_V]X = [((k - rd_S)d_V)(1/d_V)]G
     let t1 = q_s * r_p; // t1 = [r]Q = [rd_S]G
@@ -119,6 +125,7 @@ fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> bool {
 }
 
 // Return the three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of t0 and t1.
+#[must_use]
 fn b_values(t0: &Point, t1: &Point) -> (Point, Point, Point) {
     let b0 = t0 * t1;
     let bzz = (&b0 - &Point::ONE).square();
