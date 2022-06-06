@@ -16,6 +16,11 @@ use crate::scalar::Scalar;
 /// * `nonce`: a pseudorandom secret value (i.e. `d'` in the literature)
 /// * `m`: the message to be signed
 /// * `hash`: a structured hash algorithm (e.g. TupleHash)
+///
+/// Unlike the algorithm as described by Renes and Smith, this implementation always produces a
+/// proof scalar with an LSB of zero. [verify] checks for this, rejecting any signatures with a
+/// proof scalar with an LSB of one. This eliminates malleability in the resulting signatures while
+/// still producing signatures which are verifiable by standard implementations.
 #[must_use]
 pub fn sign(
     pk: &[u8; 32],
