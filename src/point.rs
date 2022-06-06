@@ -70,7 +70,7 @@ impl Point {
         if is_square.into() {
             // multiply by u if v is positive, multiply by u+A otherwise
             let t3 = &Point::conditional_select(t1, &t2, (mask & 1).into()) * &t3;
-            let t3 = Point::conditional_select(&t3, &-&t3, (&t3 * &TWO).is_odd());
+            let t3 = Point::conditional_select(&t3, &-&t3, (&t3 * &TWO).is_zero_lsb());
 
             let mut rep = t3.as_bytes();
             rep[31] |= mask & 0b1100_0000; // use the top two bits of the mask
@@ -181,10 +181,8 @@ impl Point {
     }
 
     #[inline]
-    fn is_odd(&self) -> Choice {
-        let mut b = [0u8; 32];
-        fiat_25519_to_bytes(&mut b, &self.0);
-        (b[0] & 1).into()
+    fn is_zero_lsb(&self) -> Choice {
+        (self.as_bytes()[0] & 1).into()
     }
 
     #[inline]
