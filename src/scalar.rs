@@ -1,6 +1,6 @@
 use std::ops::{Add, Mul, Neg, Sub};
 
-use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable, ConstantTimeEq};
 use zeroize::Zeroize;
 
 /// A scalar value of Curve25519.
@@ -126,6 +126,16 @@ impl Scalar {
     #[inline]
     pub(crate) fn is_zero_lsb(&self) -> Choice {
         !Choice::from(self.0[0] as u8 & 1)
+    }
+
+    /// If the scalar's LSB is zero, returns `self`. Otherwise, returns `-self`, which has a zero
+    /// LSB.
+    #[inline]
+    pub(crate) fn to_zero_lsb(mut self) -> Scalar {
+        let zero_lsb = self.is_zero_lsb();
+        Scalar::conditional_negate(&mut self, !zero_lsb);
+        debug_assert!(bool::from(self.is_zero_lsb()));
+        self
     }
 
     /// Returns the multiplicative inverse of the scalar.

@@ -1,6 +1,5 @@
 use crate::point::{Point, G};
 use crate::scalar::Scalar;
-use subtle::ConditionallyNegatable;
 
 /// Signs a message with the qDSA algorithm.
 ///
@@ -62,10 +61,12 @@ pub fn verify(
 /// Given the signer challenge `r` (e.g. `H(I || Q || m)`), returns the proof scalar `s`.
 #[must_use]
 pub fn sign_challenge(d: &Scalar, k: &Scalar, r: &Scalar) -> Scalar {
-    let mut c = k - &(r * d);
-    let zero_lsb = c.is_zero_lsb();
-    Scalar::conditional_negate(&mut c, !zero_lsb);
-    c
+    // If r has non-zero LSB), negate it to ensure it has a zero LSB.
+    let r = (*r).to_zero_lsb();
+
+    // Calculate s and return either it or its zero-LSB opposite.
+    let s = k - &(&r * d);
+    s.to_zero_lsb()
 }
 
 /// Given a challenge (e.g. `H(I || Q_S || m)`), returns the designated proof point `x` using the
