@@ -5,7 +5,7 @@
 #![warn(missing_docs, clippy::missing_const_for_fn)]
 
 pub use crate::qdsa::{sign, verify};
-pub use crate::x25519::{public_key, x25519};
+pub use crate::x25519::{public_key, x25519, x25519_strict};
 
 mod point;
 mod qdsa;

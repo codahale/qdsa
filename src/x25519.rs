@@ -1,12 +1,25 @@
 use crate::point::{Point, G};
 use crate::scalar::Scalar;
+use subtle::{ConstantTimeEq, CtOption};
 
 /// Computes the X25519 shared secret for public key `pk` and secret key `sk`.
+///
+/// *N.B.:* Does not check for contributory behavior. Use `x25519_strict` unless your usage does not
+/// require that.
 #[must_use]
 pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
     let d = Scalar::clamp(sk);
     let q = Point::from_bytes(pk);
     (&q * &d).as_bytes()
+}
+
+/// Computes the X25519 shared secret for public key `pk` and secret key `sk`.
+///
+/// Returns `None` if `pk` is non-canonical, low-order, or small-group.
+#[must_use]
+pub fn x25519_strict(pk: &[u8; 32], sk: &[u8; 32]) -> Option<[u8; 32]> {
+    let ss = x25519(pk, sk);
+    CtOption::new(ss, !ss.ct_eq(&[0u8; 32])).into()
 }
 
 /// Computes the public key for secret key `sk`.
@@ -18,7 +31,7 @@ pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use hex_literal::hex;
-    use wycheproof::xdh::{TestName, TestSet};
+    use wycheproof::xdh::{TestFlag, TestName, TestSet};
 
     use super::*;
 
@@ -81,6 +94,10 @@ mod tests {
 
                 let ss_p = x25519(&pk, &sk);
                 assert_eq!(&ss, &ss_p, "error for {}", t.tc_id);
+
+                if t.flags.contains(&TestFlag::ZeroSharedSecret) {
+                    assert_eq!(None, x25519_strict(&pk, &sk), "error for {}", t.tc_id);
+                }
             }
         }
     }
