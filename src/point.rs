@@ -70,7 +70,7 @@ impl Point {
         if is_square.into() {
             // multiply by u if v is positive, multiply by u+A otherwise
             let t3 = &Point::conditional_select(t1, &t2, (mask & 1).into()) * &t3;
-            let t3 = Point::conditional_select(&t3, &-&t3, (&t3 * &TWO).is_zero_lsb());
+            let t3 = Point::conditional_select(&-&t3, &t3, (&t3 * &TWO).is_zero_lsb());
 
             let mut rep = t3.as_bytes();
             rep[31] |= mask & 0b1100_0000; // use the top two bits of the mask
@@ -180,9 +180,10 @@ impl Point {
         )
     }
 
+    /// Returns `true` if the point's LSB is zero.
     #[inline]
     fn is_zero_lsb(&self) -> Choice {
-        (self.as_bytes()[0] & 1).into()
+        !Choice::from(self.as_bytes()[0] & 1)
     }
 
     #[inline]
