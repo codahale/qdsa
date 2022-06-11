@@ -4,7 +4,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, clippy::missing_const_for_fn)]
 
-pub use crate::qdsa::{sign, verify};
+pub use crate::qdsa::{sign, sign_strict, verify, verify_strict};
 pub use crate::x25519::{public_key, x25519, x25519_strict};
 
 mod point;
@@ -16,7 +16,8 @@ mod x25519;
 pub mod hazmat {
     pub use crate::point::{Point, G};
     pub use crate::qdsa::{
-        dv_sign_challenge, dv_verify_challenge, sign_challenge, verify_challenge,
+        dv_sign_challenge, dv_verify_challenge, sign_challenge, sign_challenge_strict,
+        verify_challenge, verify_challenge_strict,
     };
     pub use crate::scalar::Scalar;
 }
