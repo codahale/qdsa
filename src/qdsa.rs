@@ -480,6 +480,7 @@ mod tests {
             sig_p[4] ^= 1;
 
             assert!(verify_strict(&pk_a, &sig, message, shake128));
+            assert!(verify(&pk_a, &sig, message, shake128));
             assert!(!verify_strict(&pk_b, &sig, message, shake128));
             assert!(!verify_strict(
                 &pk_a,
