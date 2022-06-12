@@ -6,6 +6,7 @@
 
 pub use crate::qdsa::{sign, verify};
 
+pub mod dv;
 mod point;
 mod qdsa;
 mod scalar;
@@ -15,8 +16,6 @@ pub mod x25519;
 /// Cryptographic functionality which will let you do stupid things to yourself.
 pub mod hazmat {
     pub use crate::point::{Point, G};
-    pub use crate::qdsa::{
-        dv_sign_challenge, dv_verify_challenge, sign_challenge, verify_challenge,
-    };
+    pub use crate::qdsa::{sign_challenge, verify_challenge};
     pub use crate::scalar::Scalar;
 }

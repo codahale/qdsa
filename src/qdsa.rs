@@ -73,19 +73,6 @@ pub fn sign_challenge(d: &Scalar, k: &Scalar, r: &Scalar) -> Scalar {
     k - &(&r * d)
 }
 
-/// Given a challenge (e.g. `H(I || Q_S || m)`), returns the designated proof point `x` using the
-/// designated verifier's public key `q_v`.
-///
-/// This adapts
-/// [Steinfeld, Wang, and Pieprzyk](https://www.iacr.org/archive/pkc2004/29470087/29470087.pdf)'s
-/// designated verifier scheme for Schnorr signatures to Kummer varieties.
-///
-/// Use [dv_verify_challenge] to verify `i` and `x`.
-#[must_use]
-pub fn dv_sign_challenge(d_s: &Scalar, k: &Scalar, q_v: &Point, r: &Scalar) -> Point {
-    q_v * &sign_challenge(d_s, k, r)
-}
-
 /// Verifies a counterfactual challenge, given a commitment point and proof scalar.
 ///
 /// * `q`: the signer's public key
@@ -102,26 +89,9 @@ pub fn verify_challenge(q: &Point, r_p: &Scalar, i: &Point, s: &Scalar) -> bool 
     check(&bzz, &bxz, &bxx, i)
 }
 
-/// Verifies a counterfactual challenge, given a commitment point and designated proof point.
-///
-/// * `q_s`: the signer's public key
-/// * `d_v`: the designated verifier's private key
-/// * `challenge`: the re-calculated challenge e.g. `H(I || Q_S || m)`
-/// * `i`: the commitment point from the signature
-/// * `x`: the designated proof point from the signature
-#[must_use]
-pub fn dv_verify_challenge(q_s: &Point, d_v: &Scalar, r_p: &Scalar, i: &Point, x: &Point) -> bool {
-    let t0 = x * &d_v.invert(); // t0 = [1/d_V]X = [((k - rd_S)d_V)(1/d_V)]G
-    let t1 = q_s * r_p; // t1 = [r]Q = [rd_S]G
-
-    // return true iff ±[k]G ∈ {±([k - rd_S]G + [rd_S]G), ±([k - rd_S]G - [rd_S]G)}
-    let (bzz, bxz, bxx) = b_values(&t0, &t1);
-    check(&bzz, &bxz, &bxx, i)
-}
-
 // Return `true` iff `B_XX(i)^2 - B_XZ(i) + B_ZZ = 0`.
 #[must_use]
-fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> bool {
+pub(crate) fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> bool {
     (&(&(bxx * &i.square()) - &(bxz * i)) + bzz)
         .is_zero()
         .into()
@@ -129,7 +99,7 @@ fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> bool {
 
 // Return the three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of t0 and t1.
 #[must_use]
-fn b_values(t0: &Point, t1: &Point) -> (Point, Point, Point) {
+pub(crate) fn b_values(t0: &Point, t1: &Point) -> (Point, Point, Point) {
     let b0 = t0 * t1;
     let bzz = (&b0 - &Point::ONE).square();
 
@@ -352,36 +322,6 @@ pub(crate) mod tests {
                 shake128
             ));
             assert!(!verify(&pk_a, &sig_p, message, shake128));
-        }
-    }
-
-    #[test]
-    fn dv_qdsa_round_trip() {
-        for _ in 0..1000 {
-            let d_s = Scalar::clamp(&thread_rng().gen());
-            let q_s = &G * &d_s;
-
-            let d_v = Scalar::clamp(&thread_rng().gen());
-            let q_v = &G * &d_v;
-
-            let message = b"this is a message";
-
-            // Create a designated verifier signature.
-            let (i, x) = {
-                // Generate a standard commitment.
-                let nonce = thread_rng().gen::<[u8; 32]>();
-                let k = Scalar::from_bytes_wide(&shake128(&[&nonce, &d_s.as_bytes(), message]));
-                let i = &G * &k;
-                let r =
-                    Scalar::from_bytes_wide(&shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]));
-                let x = dv_sign_challenge(&d_s, &k, &q_v, &r);
-                (i, x)
-            };
-
-            // Re-create the challenge using the commitment point.
-            let r_p =
-                Scalar::from_bytes_wide(&shake128(&[&i.as_bytes(), &q_s.as_bytes(), message]));
-            assert!(dv_verify_challenge(&q_s, &d_v, &r_p, &i, &x));
         }
     }
 }
