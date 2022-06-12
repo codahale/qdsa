@@ -72,8 +72,9 @@ pub fn verify(
 
 /// Cryptographic functionality which will let you do stupid things to yourself.
 mod hazmat {
-    use super::*;
     use crate::hazmat::{b_values, check};
+
+    use super::*;
 
     /// Given a challenge (e.g. `H(I || Q_S || m)`), returns the designated proof point `x` using the
     /// designated verifier's public key `q_v`.
@@ -104,10 +105,12 @@ mod hazmat {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use rand::{thread_rng, Rng};
+
     use crate::tests::shake128;
     use crate::x25519::public_key;
-    use rand::{thread_rng, Rng};
+
+    use super::*;
 
     #[test]
     fn round_trip() {
@@ -132,7 +135,7 @@ mod tests {
                 &pk_a,
                 &sig,
                 b"this is a different message",
-                shake128
+                shake128,
             ));
             assert!(!verify(&sk_b, &pk_a, &sig_p, message, shake128));
         }

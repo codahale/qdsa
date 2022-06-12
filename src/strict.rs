@@ -153,7 +153,7 @@ mod tests {
                 &pk_a,
                 &sig,
                 b"this is a different message",
-                shake128
+                shake128,
             ));
             assert!(!verify(&pk_a, &sig_p, message, shake128));
         }
