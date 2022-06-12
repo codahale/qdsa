@@ -5,12 +5,11 @@
 #![warn(missing_docs, clippy::missing_const_for_fn)]
 
 pub use crate::qdsa::{sign, sign_strict, verify, verify_strict};
-pub use crate::x25519::{public_key, x25519, x25519_strict};
 
 mod point;
 mod qdsa;
 mod scalar;
-mod x25519;
+pub mod x25519;
 
 /// Cryptographic functionality which will let you do stupid things to yourself.
 pub mod hazmat {

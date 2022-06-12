@@ -1,6 +1,10 @@
+//! The X25519 Diffie-Hellman key agreement algorithm, per
+//! [RFC 7748](https://datatracker.ietf.org/doc/html/rfc7748).
+
+use subtle::{ConstantTimeEq, CtOption};
+
 use crate::point::{Point, G};
 use crate::scalar::Scalar;
-use subtle::{ConstantTimeEq, CtOption};
 
 /// Computes the X25519 shared secret for public key `pk` and secret key `sk`.
 ///

@@ -247,7 +247,7 @@ mod tests {
         Shake128,
     };
 
-    use crate::public_key;
+    use crate::x25519::public_key;
 
     use super::*;
 
