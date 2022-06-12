@@ -4,19 +4,19 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, clippy::missing_const_for_fn)]
 
-pub use crate::qdsa::{sign, sign_strict, verify, verify_strict};
+pub use crate::qdsa::{sign, verify};
 
 mod point;
 mod qdsa;
 mod scalar;
+pub mod strict;
 pub mod x25519;
 
 /// Cryptographic functionality which will let you do stupid things to yourself.
 pub mod hazmat {
     pub use crate::point::{Point, G};
     pub use crate::qdsa::{
-        dv_sign_challenge, dv_verify_challenge, sign_challenge, sign_challenge_strict,
-        verify_challenge, verify_challenge_strict,
+        dv_sign_challenge, dv_verify_challenge, sign_challenge, verify_challenge,
     };
     pub use crate::scalar::Scalar;
 }
