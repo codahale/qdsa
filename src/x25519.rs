@@ -8,7 +8,7 @@ use crate::scalar::Scalar;
 
 /// Computes the X25519 shared secret for public key `pk` and secret key `sk`.
 ///
-/// *N.B.:* Does not check for contributory behavior. Use `x25519_strict` unless your usage does not
+/// *N.B.:* Does not check for contributory behavior. Use [x25519_strict] unless your usage does not
 /// require that.
 #[must_use]
 pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
@@ -17,7 +17,8 @@ pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
     (&q * &d).as_bytes()
 }
 
-/// Computes the X25519 shared secret for public key `pk` and secret key `sk`.
+/// Computes the X25519 shared secret for public key `pk` and secret key `sk`, checking for
+/// contributory behavior.
 ///
 /// Returns `None` if `pk` is non-canonical, low-order, or small-group.
 #[must_use]
