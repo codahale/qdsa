@@ -14,6 +14,12 @@ mod scalar;
 pub mod strict;
 pub mod x25519;
 
+/// Computes the public key for secret key `sk`.
+pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
+    let d = Scalar::clamp(sk);
+    (&G * &d).as_bytes()
+}
+
 /// Signs a message with the qDSA algorithm.
 ///
 /// In the formal description of the algorithm, a 32-byte secret key is hashed into a 64-byte value:
@@ -115,7 +121,7 @@ pub(crate) mod tests {
         Shake128,
     };
 
-    use crate::x25519::public_key;
+    use crate::public_key;
 
     use super::*;
 

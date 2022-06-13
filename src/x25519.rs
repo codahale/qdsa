@@ -3,7 +3,7 @@
 
 use subtle::{ConstantTimeEq, CtOption};
 
-use crate::point::{Point, G};
+use crate::point::Point;
 use crate::scalar::Scalar;
 
 /// Computes the X25519 shared secret for public key `pk` and secret key `sk`.
@@ -25,12 +25,6 @@ pub fn x25519(pk: &[u8; 32], sk: &[u8; 32]) -> [u8; 32] {
 pub fn x25519_strict(pk: &[u8; 32], sk: &[u8; 32]) -> Option<[u8; 32]> {
     let ss = x25519(pk, sk);
     CtOption::new(ss, !ss.ct_eq(&[0u8; 32])).into()
-}
-
-/// Computes the public key for secret key `sk`.
-pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
-    let d = Scalar::clamp(sk);
-    (&G * &d).as_bytes()
 }
 
 #[cfg(test)]

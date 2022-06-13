@@ -104,8 +104,8 @@ mod hazmat {
 mod tests {
     use rand::{thread_rng, Rng};
 
+    use crate::public_key;
     use crate::tests::shake128;
-    use crate::x25519::public_key;
 
     use super::*;
 

@@ -108,8 +108,8 @@ mod tests {
     use hex_literal::hex;
     use rand::{thread_rng, Rng};
 
+    use crate::public_key;
     use crate::tests::shake128;
-    use crate::x25519::public_key;
 
     use super::*;
 

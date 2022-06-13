@@ -6,8 +6,8 @@ use sha3::{
 };
 
 use qdsa::hazmat::{Point, Scalar, G};
-use qdsa::x25519::{public_key, x25519};
-use qdsa::{sign, verify};
+use qdsa::x25519::x25519;
+use qdsa::{public_key, sign, verify};
 
 fn benchmarks(c: &mut Criterion) {
     fn generate_key() -> (Point, [u8; 32]) {
