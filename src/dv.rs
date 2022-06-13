@@ -71,7 +71,7 @@ pub fn verify(
 }
 
 /// Cryptographic functionality which will let you do stupid things to yourself.
-mod hazmat {
+pub mod hazmat {
     use super::*;
 
     /// Given a challenge (e.g. `H(I || Q_S || m)`), returns the designated proof point `x` using the
