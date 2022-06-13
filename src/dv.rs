@@ -72,8 +72,6 @@ pub fn verify(
 
 /// Cryptographic functionality which will let you do stupid things to yourself.
 mod hazmat {
-    use crate::hazmat::{b_values, check};
-
     use super::*;
 
     /// Given a challenge (e.g. `H(I || Q_S || m)`), returns the designated proof point `x` using the
@@ -98,8 +96,7 @@ mod hazmat {
         let t1 = q_s * r_p; // t1 = [r]Q = [rd_S]G
 
         // return true iff ±[k]G ∈ {±([k - rd_S]G + [rd_S]G), ±([k - rd_S]G - [rd_S]G)}
-        let (bzz, bxz, bxx) = b_values(&t0, &t1);
-        check(&bzz, &bxz, &bxx, i)
+        i.equal_up_to_sign(&t0, &t1).into()
     }
 }
 

@@ -102,37 +102,7 @@ pub mod hazmat {
         let t0 = &G * s; // t0 = [s]G = [k - rd]G
         let t1 = q * r_p; // t1 = [r]Q = [rd]G
 
-        // return true iff ±[k]G ∈ {±([k - rd]G + [rd]G), ±([k - rd]G - [rd]G)}
-        let (bzz, bxz, bxx) = b_values(&t0, &t1);
-        check(&bzz, &bxz, &bxx, i)
-    }
-
-    // Return `true` iff `B_XX(i)^2 - B_XZ(i) + B_ZZ = 0`.
-    #[must_use]
-    pub(crate) fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> bool {
-        (&(&(bxx * &i.square()) - &(bxz * i)) + bzz)
-            .is_zero()
-            .into()
-    }
-
-    // Return the three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of t0 and t1.
-    #[must_use]
-    pub(crate) fn b_values(t0: &Point, t1: &Point) -> (Point, Point, Point) {
-        let b0 = t0 * t1;
-        let bzz = (&b0 - &Point::ONE).square();
-
-        let bxz = t0 + t1;
-        let bxz = &bxz * &(&b0 + &Point::ONE);
-        let b0 = t0 * t1;
-        let b0 = &b0 + &b0;
-        let b0 = &b0 + &b0;
-        let b1 = &b0 + &b0;
-        let bxz = &bxz + &(&b1.mul121666() - &b0);
-        let bxz = &bxz + &bxz;
-
-        let bxx = (t0 - t1).square();
-
-        (bzz, bxz, bxx)
+        i.equal_up_to_sign(&t0, &t1).into()
     }
 }
 

@@ -143,6 +143,12 @@ impl Point {
         &t20 * &t3 // 254..5,3,1,0
     }
 
+    /// Returns `true` iff `±self ∈ {±(t0 + t1), ±(t0 - t1)}`.
+    pub fn equal_up_to_sign(&self, t0: &Point, t1: &Point) -> Choice {
+        let (bzz, bxz, bxx) = b_values(t0, t1);
+        check(&bzz, &bxz, &bxx, self)
+    }
+
     // Inverse square root.
     // Returns true if x is a square, false otherwise.
     // After the call:
@@ -348,6 +354,32 @@ impl ConditionallySelectable for Point {
         fiat_25519_selectznz(&mut ret.0, choice.unwrap_u8(), &a.0, &b.0);
         ret
     }
+}
+
+// Return `true` iff `B_XX(i)^2 - B_XZ(i) + B_ZZ = 0`.
+#[must_use]
+fn check(bzz: &Point, bxz: &Point, bxx: &Point, i: &Point) -> Choice {
+    (&(&(bxx * &i.square()) - &(bxz * i)) + bzz).is_zero()
+}
+
+// Return the three biquadratic forms B_XX, B_XZ and B_ZZ in the coordinates of t0 and t1.
+#[must_use]
+fn b_values(t0: &Point, t1: &Point) -> (Point, Point, Point) {
+    let b0 = t0 * t1;
+    let bzz = (&b0 - &Point::ONE).square();
+
+    let bxz = t0 + t1;
+    let bxz = &bxz * &(&b0 + &Point::ONE);
+    let b0 = t0 * t1;
+    let b0 = &b0 + &b0;
+    let b0 = &b0 + &b0;
+    let b1 = &b0 + &b0;
+    let bxz = &bxz + &(&b1.mul121666() - &b0);
+    let bxz = &bxz + &bxz;
+
+    let bxx = (t0 - t1).square();
+
+    (bzz, bxz, bxx)
 }
 
 const SQRT_M1: Point = Point([
