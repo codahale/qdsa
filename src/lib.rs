@@ -8,6 +8,7 @@ use crate::point::{Point, G};
 use crate::scalar::Scalar;
 
 pub mod dv;
+pub mod elligator;
 mod point;
 mod scalar;
 pub mod strict;
