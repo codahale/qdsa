@@ -14,7 +14,7 @@ mod scalar;
 pub mod strict;
 pub mod x25519;
 
-/// Computes the public key for secret key `sk`.
+/// Computes the public key for secret key `sk`. All 32-byte bitstrings are valid secret keys.
 pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
     let d = Scalar::clamp(sk);
     (&G * &d).as_bytes()
