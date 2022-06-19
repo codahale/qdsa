@@ -30,7 +30,6 @@ pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
 ///
 /// For this API, `sk = d'`, `pk = [d']G`, and `nonce = d''`.
 ///
-/// * `pk`: the signer's public key
 /// * `sk`: the signer's secret key (i.e. `d''` in the literature)
 /// * `nonce`: a pseudorandom secret value (i.e. `d'` in the literature)
 /// * `m`: the message to be signed
@@ -42,17 +41,17 @@ pub fn public_key(sk: &[u8; 32]) -> [u8; 32] {
 /// still producing signatures which are verifiable by standard implementations.
 #[must_use]
 pub fn sign(
-    pk: &[u8; 32],
     sk: &[u8; 32],
     nonce: &[u8; 32],
     m: &[u8],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
     let d = Scalar::clamp(sk);
+    let q = &G * &d;
     let k = Scalar::from_bytes_wide(&hash(&[nonce, m]));
     let i = &G * &k;
     let i = i.as_bytes();
-    let r = Scalar::from_bytes_wide(&hash(&[&i, pk, m]));
+    let r = Scalar::from_bytes_wide(&hash(&[&i, &q.as_bytes(), m]));
     let s = hazmat::sign_challenge(&d, &k, &r);
 
     let mut sig = [0u8; 64];
@@ -149,7 +148,7 @@ pub(crate) mod tests {
             "c62376dfa28d0a2bc4d134b5ec80dce4bcc0bd123579809c890dc46d83080470"
             "c0245d5891f6c4820da12d4159b7268126ce22456b95d8ca6d0edc55038ddb0e"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("366fb851a56023b3a21267b5894b85a969d30f41278fc2e2a78691315021b212");
@@ -160,7 +159,7 @@ pub(crate) mod tests {
             "186728b271da40ae6954944cbb51d5eba299739b8276f0a2272220db3b5f7e2f"
             "5d5151c97e998496771ec634498946415ba6f3ac5d2af300cf959f6c99b09e0c"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("4143a10bb4f6f0892663ff88df1bb5e3beaa577067e5ea962f826c0f863e7713");
@@ -171,7 +170,7 @@ pub(crate) mod tests {
             "a613cf241e91172f11c7051792afd904042cc12bf6183d18564394b5b194e464"
             "f5fa65919338a7637ff2daa27a4c0ed8e49c2e68fab6b9e37a5f9ec30a5e4006"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("ce01b6c516c181c98a57c68aca7cb193714f0aec621ba82aa343be64dd8fcb40");
@@ -182,7 +181,7 @@ pub(crate) mod tests {
             "fa826e1c1579d0cf91f8274156cd59071396a93dc730b93fa159f886fad33b67"
             "ac72c0b7eec24bd5dc4feb64073578215d9bbdbea0e69f22f206c9ab0449b506"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("daf5a3d2f08ef44385738b8c9d4a1b87efdbb79e5713b5dd49ae0b97ef8fdb14");
@@ -193,7 +192,7 @@ pub(crate) mod tests {
             "34fcdce4ff4223815fb20abd27e350f5c88f1fcfdbc63b6ea36d7dbf85da9b04"
             "729973eb1912a06792ba54dcdfe926e4cd8c03c9c5d955d77a079f7db11b6908"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("cb8d1875438a48beeb2a7ccb0641db2f82ccdb99117d9fe51b57fe2630aaf252");
@@ -204,7 +203,7 @@ pub(crate) mod tests {
             "6ce32003734ada127f83c1638500a635602d0f2f2d127b80ae3d944d7fb1e84a"
             "1a3dc01746df15cf24d8709ae9690e19c4dd3fbee8833d0e3c0ba30957851002"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("a869b17d2fbe1fe27745586021201043ca54d8e943e36c60c46c45736f9c7706");
@@ -215,7 +214,7 @@ pub(crate) mod tests {
             "ca60dc47dadb8c4367711617c3232a89f1263f11c92bae3b992530331175786d"
             "80b73b19c77c3e00b6cd4077db449609766a6c0ca46132b75bbf53126d28cb06"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("283e1bb0ac57d52342e08b0415f27d9fa54e8d3d90b727c424057243a1a00570");
@@ -226,7 +225,7 @@ pub(crate) mod tests {
             "b58ac2df98b671e1faf425f73de0918871ed7ec12d5ed4b5172344c1dca9f34c"
             "5c7cea06c262bd3f7f9a00364dbe2a260f7d05aee4a2fe4ce62a176f5d22a20c"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("a8bc0c539775462b2f21834ccddcb3c5d452b6702a85818bba5da1f0c2a90a59");
@@ -237,7 +236,7 @@ pub(crate) mod tests {
             "8137f6865c2a5c74feb9f5a64ae06601ed0878d9bf6be8b8297221034e7bba64"
             "5a04f337ea101a11352ebb4c377e436b9502520a5e8056f5443ab15d2c25d10b"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
 
         let pk = hex!("9084b27fddbaac28c094a2423cfb0dc8392c26d606c3e1ec078d463426e79c20");
@@ -248,7 +247,7 @@ pub(crate) mod tests {
             "2f515d842513526f6a6b8d0b0f0643121bf4f598a08267404d332748579c1049"
             "09cb8495f9c7f3846012048ac367417e2a2435e7419eb588d98727d070db3f05"
         );
-        assert_eq!(sig, sign(&pk, &sk, &nonce, &m, shake128));
+        assert_eq!(sig, sign(&sk, &nonce, &m, shake128));
         assert!(verify(&pk, &sig, &m, shake128));
     }
 
@@ -304,7 +303,7 @@ pub(crate) mod tests {
 
             let message = b"this is a message";
 
-            let sig = sign(&pk_a, &sk_a, &nonce, message, shake128);
+            let sig = sign(&sk_a, &nonce, message, shake128);
             let mut sig_p = sig;
             sig_p[4] ^= 1;
 

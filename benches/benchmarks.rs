@@ -34,13 +34,13 @@ fn benchmarks(c: &mut Criterion) {
         let nonce = thread_rng().gen();
         let message = b"this is a short message";
 
-        b.iter(|| sign(&pk_a, &sk_a, &nonce, message, shake128))
+        b.iter(|| sign(&sk_a, &nonce, message, shake128))
     });
 
     c.bench_function("verify", |b| {
         let nonce = thread_rng().gen();
         let message = b"this is a short message";
-        let sig = sign(&pk_a, &sk_a, &nonce, message, shake128);
+        let sig = sign(&sk_a, &nonce, message, shake128);
 
         b.iter(|| verify(&pk_a, &sig, message, shake128))
     });

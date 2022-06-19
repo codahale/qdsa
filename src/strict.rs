@@ -17,7 +17,6 @@ use crate::hazmat::{Point, Scalar, G};
 ///
 /// For this API, `sk = d'`, `pk = [d']G`, and `nonce = d''`.
 ///
-/// * `pk`: the signer's public key
 /// * `sk`: the signer's secret key (i.e. `d''` in the literature)
 /// * `nonce`: a pseudorandom secret value (i.e. `d'` in the literature)
 /// * `m`: the message to be signed
@@ -29,17 +28,17 @@ use crate::hazmat::{Point, Scalar, G};
 /// still producing signatures which are verifiable by standard implementations.
 #[must_use]
 pub fn sign(
-    pk: &[u8; 32],
     sk: &[u8; 32],
     nonce: &[u8; 32],
     m: &[u8],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
     let d = Scalar::clamp(sk);
+    let q = &G * &d;
     let k = Scalar::from_bytes_wide(&hash(&[nonce, m]));
     let i = &G * &k;
     let i = i.as_bytes();
-    let r = Scalar::from_bytes_wide(&hash(&[&i, pk, m]));
+    let r = Scalar::from_bytes_wide(&hash(&[&i, &q.as_bytes(), m]));
     let s = hazmat::sign_challenge(&d, &k, &r);
 
     let mut sig = [0u8; 64];
@@ -142,7 +141,7 @@ mod tests {
 
             let message = b"this is a message";
 
-            let sig = sign(&pk_a, &sk_a, &nonce, message, shake128);
+            let sig = sign(&sk_a, &nonce, message, shake128);
             let mut sig_p = sig;
             sig_p[4] ^= 1;
 

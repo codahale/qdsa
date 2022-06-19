@@ -18,7 +18,6 @@ use crate::hazmat::{Point, Scalar, G};
 /// For this API, `sk = d'`, `pk = [d']G`, and `nonce = d''`.
 ///
 /// * `vk`: the verifier's public key
-/// * `pk`: the signer's public key
 /// * `sk`: the signer's secret key (i.e. `d''` in the literature)
 /// * `nonce`: a pseudorandom secret value (i.e. `d'` in the literature)
 /// * `m`: the message to be signed
@@ -26,19 +25,19 @@ use crate::hazmat::{Point, Scalar, G};
 #[must_use]
 pub fn sign(
     vk: &[u8; 32],
-    pk: &[u8; 32],
     sk: &[u8; 32],
     nonce: &[u8; 32],
     m: &[u8],
     mut hash: impl FnMut(&[&[u8]]) -> [u8; 64],
 ) -> [u8; 64] {
-    let q = Point::from_bytes(vk);
+    let q_v = Point::from_bytes(vk);
     let d = Scalar::clamp(sk);
+    let q = &G * &d;
     let k = Scalar::from_bytes_wide(&hash(&[nonce, m]));
     let i = &G * &k;
     let i = i.as_bytes();
-    let r = Scalar::from_bytes_wide(&hash(&[&i, pk, m]));
-    let x = hazmat::sign_challenge(&d, &k, &q, &r);
+    let r = Scalar::from_bytes_wide(&hash(&[&i, &q.as_bytes(), m]));
+    let x = hazmat::sign_challenge(&d, &k, &q_v, &r);
 
     let mut sig = [0u8; 64];
     sig[..32].copy_from_slice(&i);
@@ -120,7 +119,7 @@ mod tests {
 
             let message = b"this is a message";
 
-            let sig = sign(&pk_b, &pk_a, &sk_a, &nonce, message, shake128);
+            let sig = sign(&pk_b, &sk_a, &nonce, message, shake128);
             let mut sig_p = sig;
             sig_p[4] ^= 1;
 
